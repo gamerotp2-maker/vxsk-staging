@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#07091b">
+<title>VXSK — Staff Dashboard</title><link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="staff.css?v=12.8.4">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
+<script src="supabase-config.js?v=12.8.4" defer></script><script src="staging-guard.js" defer></script><script src="staff.js?v=12.8.4" defer></script><script src="opponent-staff.js?v=12.8.4" defer></script><script src="content-editor.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#workspace">Skip to workspace</a>
+<header class="bar"><a class="brand" href="./"><img src="assets/vxsk-logo.png" width="52" height="48" alt="VXSK"></a><div><span class="eyebrow">VXSK // AUTHORIZED PERSONNEL</span><h1>STAFF <em>COMMAND.</em></h1></div><a class="back" href="./">← BACK TO ARENA</a></header>
+<main id="workspace" class="wrap">
+<section id="gate" class="gate" role="status" aria-live="polite"><div class="gate-icon" aria-hidden="true">◆</div><h2 id="gate-title">Checking access…</h2><p id="gate-message">Please wait while we verify your VXSK login, staff role and two-factor authentication.</p><a class="back-action" href="./">RETURN TO VXSK ↗</a></section>
+<div id="dashboard" hidden>
+<div class="welcome"><div><span class="eyebrow">SECURE OPERATIONS CENTER</span><h2>APPLICATION <em>REVIEW.</em></h2><p>Applications are private. Staff may review submissions and add notes. Only Owner / Reviewer can accept or reject pending applications. Decision email notifications are currently paused; players can view decisions in My Applications.</p></div><div class="identity"><span id="my-role">STAFF</span><small id="my-user">Signed in</small></div></div>
+<section class="stats" aria-label="Application statistics"><div class="stat"><span>PENDING</span><strong id="count-pending">—</strong></div><div class="stat"><span>APPROVED</span><strong id="count-approved">—</strong></div><div class="stat"><span>REJECTED</span><strong id="count-rejected">—</strong></div><div class="stat"><span>ALL VISIBLE</span><strong id="count-total">—</strong></div></section>
+<nav class="staff-inbox-tabs" aria-label="Staff inbox sections">
+<button type="button" id="staff-inbox-regular" class="is-active" aria-pressed="true">REGULAR APPLICATIONS <span id="regular-inbox-count">—</span></button>
+<button type="button" id="staff-inbox-opponents" aria-pressed="false">NO OPPONENT REQUESTS <span id="opponents-inbox-count">—</span></button>
+</nav>
+<section id="opponent-inbox" class="opponent-inbox" hidden aria-labelledby="opponent-inbox-title">
+<div class="panel-title"><span id="opponent-inbox-title">PLAYER MATCHING / PRIVATE REQUESTS</span><button type="button" id="opponent-refresh">↻ REFRESH</button></div>
+<p class="small-muted">Separate from tournament applications. Contacts are private. Reviewers may mark requests reviewed, matched or closed after contacting the player.</p>
+<p id="opponent-notice" role="status" aria-live="polite" class="notice"></p>
+<div id="opponent-requests-list" class="opponent-requests-list"></div>
+</section>
+<div id="regular-inbox"><div class="toolbar"><div><label for="filter-status">STATUS</label><select id="filter-status"><option value="all">All applications</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div><div><label for="filter-search">SEARCH PLAYERS</label><input type="search" id="filter-search" placeholder="Username / game / mode" maxlength="80"></div><button id="refresh" type="button">↻ REFRESH</button></div>
+<p id="notice" class="notice" role="status" aria-live="polite"></p>
+<div class="work-grid"><section class="board"><div class="panel-title">INCOMING APPLICATIONS <span id="list-total">0</span></div><div id="application-list" class="application-list" aria-live="polite"><p class="muted">Loading applications…</p></div></section>
+<section class="details"><div class="panel-title">REVIEW DESK</div><div id="detail-placeholder" class="detail-placeholder">Select an application to view its information and review notes.</div><div id="detail-content" hidden><div id="detail-heading" class="detail-heading"></div><dl id="detail-data" class="data-fields"></dl><div class="actions" id="review-actions" hidden><button id="approve" class="approve" type="button">✓ APPROVE</button><button id="reject" class="reject" type="button">× REJECT</button></div><div class="owner-delete-wrap" id="owner-delete-wrap" hidden><button type="button" id="owner-delete-registration" class="owner-delete">DELETE THIS APPLICATION</button><p class="small-muted">Owner only · Permanently deletes the registration and its private notes after two confirmations. Cannot be undone.</p></div><section class="notes"><h3>INTERNAL STAFF NOTES</h3><div id="notes-list"></div><form id="note-form"><label for="note-text">Add a review note (max 2,000 characters)</label><textarea id="note-text" maxlength="2000" rows="3" required placeholder="What should the VXSK staff know?"></textarea><button id="save-note" type="submit">ADD NOTE ↗</button></form></section></div></section></div></div>
+<section id="content-editor" class="content-editor" hidden aria-labelledby="content-title">
+  <div class="editor-heading"><div><span class="eyebrow">VXSK // PUBLIC CONTENT</span><h2 id="content-title">SHOWMATCHES <em>&amp; ANNOUNCEMENTS.</em></h2><p>Edit the public “Who vs Who. When.” section. Publishing changes the live test website instantly; no GitHub Pages redeploy required.</p></div><a class="back" href="./#match-center" target="_blank" rel="noopener noreferrer">VIEW PUBLIC SECTION ↗</a></div>
+  <p id="editor-notice" class="notice" role="status" aria-live="polite"></p>
+  <div class="editor-grid">
+    <section class="editor-card" aria-labelledby="edit-heading">
+      <h3 id="edit-heading">CREATE / EDIT POST</h3>
+      <form id="post-form">
+        <input type="hidden" id="post-id" value="">
+        <label for="post-kind">POST TYPE *</label><select id="post-kind" required><option value="match">Upcoming showmatch</option><option value="announcement">Announcement</option></select>
+        <label for="post-title">TITLE *</label><input id="post-title" maxlength="110" required placeholder="e.g. ROCKET LEAGUE SHOWMATCH">
+        <div id="match-fields">
+          <label for="post-game">GAME *</label><select id="post-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select>
+          <label for="post-mode">MODE *</label><input id="post-mode" maxlength="60" placeholder="e.g. 1v1">
+          <div class="editor-pair"><div><label for="post-player-a">PLAYER / TEAM A *</label><input id="post-player-a" maxlength="70" placeholder="Player A"></div><div><label for="post-player-b">PLAYER / TEAM B *</label><input id="post-player-b" maxlength="70" placeholder="Player B"></div></div>
+          <label for="post-starts">MATCH TIME — TUNISIA (UTC+01:00) *</label><input id="post-starts" type="datetime-local">
+          <label for="post-status">MATCH STATUS</label><select id="post-status"><option value="scheduled">Scheduled</option><option value="live">Live</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+        </div>
+        <label for="post-body">PUBLIC DESCRIPTION <span class="muted-inline">(required for announcements)</span></label><textarea id="post-body" maxlength="1000" rows="4" placeholder="News for VXSK players and viewers"></textarea>
+        <label class="publish-check"><input type="checkbox" id="post-published"> <span>Publish on the website now (uncheck to save as draft)</span></label>
+        <div class="editor-buttons"><button id="post-submit" type="submit">SAVE POST ↗</button><button id="post-reset" type="button" class="editor-secondary">CLEAR / NEW</button></div>
+      </form>
+    </section>
+    <section class="editor-card" aria-labelledby="posts-heading"><h3 id="posts-heading">YOUR PUBLIC POSTS</h3><p class="small-muted">Click Edit to change an announcement or fixture; delete removes it from the site. Drafts are private until published.</p><div id="editor-posts" class="editor-posts" aria-live="polite"><p class="muted">Loading…</p></div><button id="posts-refresh" type="button" class="editor-secondary">↻ REFRESH POSTS</button></section>
+  </div>
+</section>
+<p class="footer-note">Private staff workspace. Do not copy player contacts into public chats. Netlify Forms submissions need a separate verified sync before they appear here.</p>
+</div>
+</main>
+</body></html>
