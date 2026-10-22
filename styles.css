@@ -503,7 +503,7 @@ html,body {max-width:100%;overflow-x:clip;}
 /* VXSK V12.8.5 — ISSUE 1 ONLY: desktop navigation fits at 100% browser zoom.
    At laptop/desktop widths, move the 11 section links to their own accessible
    row rather than clipping the account and registration controls. */
-@media (min-width: 1360px) and (max-width: 1999px) {
+@media (min-width: 1360px)  {
   .nav.shell {
     display: flex;
     flex-wrap: wrap;
@@ -783,7 +783,7 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .friend-presence.is-online{color:#9df3ce}
 .friend-presence.is-online::before{background:#48e9ab;box-shadow:0 0 10px rgba(57,234,169,.5)}
 .friend-presence.is-offline{color:#aab7d4}
-@media(min-width:1360px) and (max-width:1999px){
+@media(min-width:1360px) {
   .vxsk-community-nav{order:1}
   .vxsk-updates-widget{order:2}
   #music-toggle{order:3}
@@ -919,7 +919,7 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 
 .vxsk-group-chat-pane:has(#vxsk-group-thread:not([hidden])) .vxsk-group-empty{display:none}
 /* Keep the ringtone control in the existing responsive nav order. */
-@media(min-width:1360px) and (max-width:1999px){
+@media(min-width:1360px) {
  #vxsk-call-ringtone-toggle{order:3}
  #music-toggle{order:4}#nav-user-chip{order:5}#nav-staff-link{order:6}.account-nav{order:7}.nav-cta{order:8}
 }

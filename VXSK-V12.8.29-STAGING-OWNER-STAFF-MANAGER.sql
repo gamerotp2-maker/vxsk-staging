@@ -1,4 +1,6 @@
--- VXSK V12.8.29 — STAGING ONLY — one-time Owner Staff Manager installation.
+-- VXSK V12.8.29 — STAGING ONLY — CORRECTED SQL (PostgreSQL compatibility).
+-- Fix: quote reserved output column name "current_role" and do not schema-qualify COALESCE.
+-- Safe to run instead of original failed query; no staff assignments are changed during setup.
 -- Use Supabase SQL Editor connected to VXSK STAGING, not your production project.
 -- No existing staff assignments are changed by this installation.
 -- Functions enforce owner role + Supabase MFA AAL2 on the server.
@@ -21,7 +23,7 @@ REVOKE ALL ON TABLE public.vxsk_staff_role_audit_id_seq FROM PUBLIC, anon, authe
 
 -- Search by VXSK nickname; never reveal emails or raw auth metadata.
 CREATE OR REPLACE FUNCTION public.vxsk_owner_staff_search(p_query text)
-RETURNS TABLE(user_id uuid, nickname text, current_role text)
+RETURNS TABLE(user_id uuid, nickname text, "current_role" text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_query text := pg_catalog.btrim(p_query);
 BEGIN
@@ -29,7 +31,7 @@ BEGIN
      OR (auth.jwt()->>'aal') IS DISTINCT FROM 'aal2'
      OR NOT EXISTS (SELECT 1 FROM public.staff_roles s WHERE s.user_id=auth.uid() AND s.role='owner')
   THEN RAISE EXCEPTION 'Owner and 2FA verification required' USING ERRCODE='42501'; END IF;
-  IF v_query IS NULL OR pg_catalog.char_length(v_query) < 2 OR pg_catalog.char_length(v_query) > 40
+  IF v_query IS NULL OR pg_catalog.length(v_query) < 2 OR pg_catalog.length(v_query) > 40
   THEN RAISE EXCEPTION 'Enter 2 to 40 characters'; END IF;
   RETURN QUERY
     SELECT p.user_id,p.nickname,s.role
@@ -44,7 +46,7 @@ END; $$;
 
 -- Show current authorized roles, including the protected Owner.
 CREATE OR REPLACE FUNCTION public.vxsk_owner_staff_list()
-RETURNS TABLE(user_id uuid, nickname text, current_role text, assigned_at timestamptz)
+RETURNS TABLE(user_id uuid, nickname text, "current_role" text, assigned_at timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   IF auth.uid() IS NULL
@@ -52,10 +54,10 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM public.staff_roles s WHERE s.user_id=auth.uid() AND s.role='owner')
   THEN RAISE EXCEPTION 'Owner and 2FA verification required' USING ERRCODE='42501'; END IF;
   RETURN QUERY
-    SELECT s.user_id,pg_catalog.coalesce(p.nickname,'Account without nickname'),s.role,s.assigned_at
+    SELECT s.user_id,coalesce(p.nickname,'Account without nickname'),s.role,s.assigned_at
     FROM public.staff_roles s
     LEFT JOIN public.vxsk_social_profiles p ON p.user_id=s.user_id
-    ORDER BY CASE WHEN s.role='owner' THEN 0 ELSE 1 END,pg_catalog.lower(pg_catalog.coalesce(p.nickname,'')),s.assigned_at
+    ORDER BY CASE WHEN s.role='owner' THEN 0 ELSE 1 END,pg_catalog.lower(coalesce(p.nickname,'')),s.assigned_at
     LIMIT 300;
 END; $$;
 
@@ -83,7 +85,7 @@ BEGIN
   ) THEN RAISE EXCEPTION 'Verified VXSK account not found' USING ERRCODE='22023'; END IF;
   SELECT s.role INTO v_before FROM public.staff_roles s WHERE s.user_id=p_target FOR UPDATE;
   IF v_before='owner' THEN RAISE EXCEPTION 'Owner account is protected' USING ERRCODE='42501'; END IF;
-  IF pg_catalog.coalesce(v_before,'none')=p_role THEN RETURN p_role; END IF;
+  IF coalesce(v_before,'none')=p_role THEN RETURN p_role; END IF;
   IF p_role='none' THEN
     DELETE FROM public.staff_roles s WHERE s.user_id=p_target AND s.role IN ('staff','reviewer');
   ELSE
@@ -109,7 +111,7 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM public.staff_roles s WHERE s.user_id=auth.uid() AND s.role='owner')
   THEN RAISE EXCEPTION 'Owner and 2FA verification required' USING ERRCODE='42501'; END IF;
   RETURN QUERY
-    SELECT pg_catalog.coalesce(p.nickname,'Former account'),a.previous_role,a.new_role,a.changed_at
+    SELECT coalesce(p.nickname,'Former account'),a.previous_role,a.new_role,a.changed_at
     FROM public.vxsk_staff_role_audit a
     LEFT JOIN public.vxsk_social_profiles p ON p.user_id=a.target_id
     ORDER BY a.changed_at DESC,a.id DESC LIMIT 25;
