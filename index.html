@@ -15,20 +15,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12.8.10">
+  <link rel="stylesheet" href="styles.css?v=12.8.11">
   <script src="motion.js" defer></script>
   <script src="app.js?v=12.8.8" defer></script>
   <script src="match-data.js" defer></script>
   <script src="arena-v8.js?v=12.8.7" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
   <script src="supabase-config.js?v=12.8.7" defer></script>
-  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.10" defer></script><script src="updates.js" defer></script>
+  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.11" defer></script><script src="updates.js" defer></script>
   <script src="match-center-live.js" defer></script>
   <script src="vxsk-experience.js" defer></script>
   <script src="season-showcase.js?v=12.8.9" defer></script>
   <script src="chapter-transitions.js?v=12.8.7" defer></script>
-  <script src="community.js?v=12.8.8" defer></script>
+  <script src="community.js?v=12.8.11" defer></script>
   <script src="ui-polish.js?v=12.8.8" defer></script>
+  <script src="friend-calls.js?v=12.8.11" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -39,7 +40,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.10</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.11</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -262,6 +263,14 @@
     </form>
   </div></dialog>
 
+      <dialog id="vxsk-call-panel" class="vxsk-call-panel" hidden aria-label="Friend audio or video call" aria-live="polite">
+        <div class="vxsk-call-header"><div><strong id="vxsk-call-title">FRIEND CALL</strong><p id="vxsk-call-status" role="status">Waiting…</p></div><button type="button" id="vxsk-call-close" aria-label="End or decline call">×</button></div>
+        <div class="vxsk-call-video" id="vxsk-call-video" hidden><video id="vxsk-remote-video" autoplay playsinline aria-label="Friend video and sound"></video><video id="vxsk-local-video" autoplay playsinline muted aria-label="Your camera preview"></video></div>
+        <audio id="vxsk-remote-audio" autoplay></audio>
+        <div id="vxsk-call-actions" class="vxsk-call-actions"><button type="button" id="vxsk-call-accept" hidden>ACCEPT CALL</button><button type="button" id="vxsk-call-decline" hidden>DECLINE</button><button type="button" id="vxsk-call-mute" hidden>MUTE MICROPHONE</button><button type="button" id="vxsk-call-camera" hidden>CAMERA OFF</button><button type="button" id="vxsk-call-hangup" hidden>END CALL</button></div>
+        <p class="auth-help">Audio/video are live and not recorded by VXSK. Your browser asks permission before using your microphone or camera. Calls only work between accepted friends who are online.</p>
+      </dialog>
+      
   <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title">
     <div class="account-shell">
       <div class="account-top"><div class="account-identity"><img src="assets/vxsk-logo.png" alt="VXSK" width="59" height="46"><span>VXSK // PLAYER ACCESS</span></div><button type="button" class="close-modal account-close" id="close-account" aria-label="Close account dialog">×</button></div>
@@ -321,6 +330,7 @@
         <div class="account-settings-grid">
         <div class="account-option"><h3>DISPLAY NAME</h3><p>Your nickname is shown beside MY ACCOUNT, and in your profile. Discord sign-in suggests your Discord username when you first join.</p><form id="nickname-form"><label for="account-nickname">NICKNAME</label><input id="account-nickname" name="nickname" minlength="3" maxlength="24" pattern="[A-Za-z0-9_.-]{3,24}" autocomplete="nickname" required><button type="submit" class="btn btn-ghost">SAVE NICKNAME ↗</button></form></div>
         <div class="account-option"><h3>YOUR AVATAR</h3><p>Personalise your VXSK account (PNG, JPG or WebP, max 10 MB). You can upload, replace, or remove it any time.</p><form id="avatar-form"><label for="avatar-file" class="auth-help">UPLOAD AN AVATAR</label><input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" required><div class="vxsk-avatar-editor" id="avatar-editor" hidden><canvas id="avatar-canvas" width="320" height="320" role="img" aria-label="Preview of cropped avatar; drag to reposition"></canvas><label for="avatar-zoom">ZOOM / CROP</label><input type="range" id="avatar-zoom" min="1" max="3" value="1" step="0.05" aria-label="Avatar zoom"><p class="auth-help">Drag the preview to move your image. The saved avatar is square, 320 × 320, WebP.</p></div><div class="profile-buttons"><button class="btn btn-ghost avatar-save" type="submit">SAVE CROPPED AVATAR ↗</button><button id="avatar-remove" type="button" class="btn btn-ghost">REMOVE AVATAR</button></div></form></div>
+        <div class="account-option vxsk-account-switch"><h3>SWITCH ACCOUNTS</h3><p>Use another VXSK account without clearing your browser or creating a new profile. Each account signs in separately and completes its own 2FA.</p><label class="remember-switch"><input type="checkbox" id="remember-account-switch"> Remember this account’s email on this device for easier switching</label><div class="profile-buttons"><button id="account-switch" type="button" class="btn btn-ghost">SWITCH ACCOUNT ↗</button><button id="forget-accounts" type="button" class="btn btn-ghost">CLEAR SAVED ACCOUNTS</button></div><p class="auth-help">Only an optional email shortcut is saved on this device. VXSK never saves passwords or second-factor codes for switching.</p></div>
         <div class="account-option"><h3>SECURITY <span id="mfa-badge" class="security-state">2FA OFF</span></h3><p>Protect your VXSK account with a 6-digit code from an authenticator app on your phone.</p><div class="profile-buttons"><button id="mfa-start" type="button" class="btn btn-ghost">ENABLE 2-STEP VERIFICATION</button><button id="mfa-remove" type="button" class="btn btn-ghost" hidden>DISABLE 2FA</button></div></div>
         </div>
         <p class="auth-help">An account is separate from showmatch registration.</p>
@@ -330,6 +340,17 @@
         <p class="auth-help">2-STEP VERIFICATION IS ENABLED. Enter the 6-digit code from your authenticator app to finish signing in.</p>
         <form id="mfa-login-form"><div class="field"><label for="mfa-login-code">AUTHENTICATOR CODE</label><input id="mfa-login-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div><button type="submit" class="btn btn-main auth-submit">VERIFY & SIGN IN ↗</button></form>
         <button type="button" id="mfa-login-logout" class="auth-text-link">SIGN OUT / USE ANOTHER ACCOUNT</button>
+      </div>
+      <div id="auth-panel-mfa-remove" class="auth-panel" data-auth-panel="mfa-remove" hidden>
+        <h3>CONFIRM 2FA REMOVAL</h3><p class="auth-help">For your security, enter a <strong>fresh 6-digit code</strong> from your authenticator app before removing two-step verification. A previously verified sign-in is not enough.</p>
+        <form id="mfa-remove-form"><div class="field"><label for="mfa-remove-code">6-DIGIT AUTHENTICATOR CODE</label><input id="mfa-remove-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="000000"></div><button type="submit" class="btn btn-main auth-submit">VERIFY CODE &amp; DISABLE 2FA ↗</button></form>
+        <button type="button" class="auth-text-link" id="mfa-remove-cancel">← KEEP 2FA ENABLED</button>
+      </div>
+      <div id="auth-panel-switch" class="auth-panel" data-auth-panel="switch" hidden>
+        <h3>CHOOSE YOUR VXSK ACCOUNT</h3><p class="auth-help">Choose an email shortcut, then sign in with your password, Google or Discord. Every account keeps its own login and 2FA security.</p>
+        <div id="saved-account-shortcuts" class="saved-account-shortcuts"><p>No saved accounts on this device.</p></div>
+        <p class="auth-help">Selecting an account does not bypass authentication. On shared devices, remove saved shortcuts when finished.</p>
+        <button type="button" class="auth-text-link" id="switch-go-signin">SIGN IN WITH A DIFFERENT ACCOUNT ↗</button>
       </div>
       <div id="auth-panel-mfa-setup" class="auth-panel" data-auth-panel="mfa-setup" hidden>
         <p class="auth-help">Step 1: Scan the QR code in Google Authenticator, Microsoft Authenticator or another TOTP app. Step 2: Enter its 6-digit code below.</p>

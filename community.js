@@ -9,7 +9,7 @@
   const btnIn=$('community-optin'),btnOut=$('community-optout');
   const privacyControls=$('community-privacy-controls'),shareAvatar=$('community-share-avatar'),sharePresence=$('community-share-presence');
   const chat=$('community-chat'),chatTitle=$('community-chat-with'),messages=$('community-messages');
-  let client=null,user=null, snapshot=null,peer=null,peerName='',lastTerm='';
+  let client=null,user=null, snapshot=null,peer=null,peerName='',lastTerm='',lastIdentity=null;
   const navForm=$('nav-player-search-form'),navSearch=$('nav-player-search'),navFriendsToggle=$('nav-friends-toggle');
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
   const signedAvatars=new Map();
@@ -40,6 +40,14 @@
     if(!client)return false;
     const {data,error}=await client.auth.getUser();
     user=error?null:data?.user;
+    // Account switching must not leave the previous account's chat or friend list visible.
+    if((user?.id||null)!==lastIdentity){
+      lastIdentity=user?.id||null;
+      snapshot=null;peer=null;chat.hidden=true;messages.replaceChildren();
+      signedAvatars.clear();renderMiniFriends([]);
+      friendsEl.replaceChildren(el('p',user?'Refreshing friends…':'Sign in to manage friends.'));
+      if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');}
+    }
     return Boolean(user);
   }
   async function rpc(name,args={}){
@@ -109,7 +117,9 @@
     if(accepted.length){navFriendsEntries.append(el('h4','FRIENDS ('+accepted.length+')'));
       for(const item of accepted.sort((a,b)=>Number(b.online===true)-Number(a.online===true))){
         navFriendsEntries.append(makeEntry(item.nickname||'VXSK PLAYER',item.status_shared?(item.online?'Online':'Offline'):'Status private',[
-          action('DM',()=>{showCommunity();return openChat(item.peer_id,item.nickname||'PLAYER');})
+          action('DM',()=>{showCommunity();return openChat(item.peer_id,item.nickname||'PLAYER');}),
+          action('AUDIO',()=>window.VXSKCalls?.start(item.peer_id,'audio',item.nickname||'PLAYER')),
+          action('VIDEO',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER'))
         ],item.peer_id,item.avatar_path,item.status_shared?Boolean(item.online):null));
       }
     }
@@ -161,6 +171,7 @@
         a.push(action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok)await refreshState();},'danger'));
       }
       if(item.status==='accepted')a.push(action('MESSAGE',()=>openChat(item.peer_id,item.nickname||'PLAYER')));
+      if(item.status==='accepted'){a.push(action('AUDIO CALL',()=>window.VXSKCalls?.start(item.peer_id,'audio',item.nickname||'PLAYER')));a.push(action('VIDEO CALL',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER')));}
       if(item.status!=='rejected')a.push(action('BLOCK',async()=>{
         if(!confirm('Block this player and remove your friendship or request?'))return;
         const r=await rpc('vxsk_social_block',{p_peer:item.peer_id,p_block:true});if(r.ok){if(peer===item.peer_id)closeChat();await refreshState();}

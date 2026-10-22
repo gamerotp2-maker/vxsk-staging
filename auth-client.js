@@ -7,7 +7,7 @@
   const dialog = $('#account-dialog');
   const message = $('#account-status');
   const switchbar = $('#auth-switch');
-  const views = new Set(['signin','signup','forgot','reset','profile','mfa-login','mfa-setup','nickname']);
+  const views = new Set(['signin','signup','forgot','reset','profile','mfa-login','mfa-setup','mfa-remove','nickname','switch']);
   const config = window.VXSK_SUPABASE || {};
   const enabled = !window.VXSK_STAGING_BLOCKED && /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.url || '') &&
     !String(config.url).toLowerCase().includes('your-project') &&
@@ -27,7 +27,7 @@
     if(!['google','discord'].includes(provider))return;
     button.disabled=true;
     try {
-      const {error}=await api.auth.signInWithOAuth({provider,options:{redirectTo:new URL('./', location.href).href}});
+      const {error}=await api.auth.signInWithOAuth({provider,options:{redirectTo:new URL('./', location.href).href, ...(provider==='google'?{queryParams:{prompt:'select_account'}}:{})}});
       if(error)throw error;
     } catch(error){ notify(explain(error, 'Could not start '+provider+' sign in. Check provider setup in Supabase.'),'error');button.disabled=false; }
   }));
@@ -417,7 +417,7 @@
     activeView = name;
     $$('[data-auth-panel]').forEach(panel => {panel.hidden = panel.dataset.authPanel !== name;});
     switchbar.hidden = !['signin','signup'].includes(name);
-    document.querySelector('#oauth-buttons').hidden = !['signin','signup'].includes(name);
+    document.querySelector('#oauth-buttons').hidden = !['signin','signup','switch'].includes(name);
     $$('[data-switch]',switchbar).forEach(button => {
       const selected = button.dataset.switch === name;
       button.classList.toggle('is-active',selected);
@@ -482,7 +482,7 @@
     if (!currentUser) {
       mfaRequired=false;
       clearMyApplications();resetNav();
-      if (dialog.open && ['profile','mfa-login','mfa-setup','nickname'].includes(activeView)) view('signin');
+      if (dialog.open && ['profile','mfa-login','mfa-setup','mfa-remove','nickname','switch'].includes(activeView)) view('signin');
       return;
     }
     const level = assert(await api.auth.mfa.getAuthenticatorAssuranceLevel());
@@ -514,14 +514,15 @@
     if(navAvatarFallback)navAvatarFallback.hidden=false;
     if($('#nav-verified'))$('#nav-verified').hidden=!verifiedFactor;
     displayNickname();
+    if($('#remember-account-switch'))$('#remember-account-switch').checked=rememberedAccounts().some(x=>x.email===currentUser.email?.toLowerCase());
     await showAvatar();
     let skippedNickname=false;
     try{skippedNickname=Boolean(sessionStorage.getItem('vxsk_skip_nickname_'+currentUser.id));}catch(_){}
     const needsNickname=!currentUser.user_metadata?.vxsk_nickname && !skippedNickname;
-    if(needsNickname && !recovering && activeView !== 'mfa-setup') {
+    if(needsNickname && !recovering && !['mfa-setup','mfa-remove','switch'].includes(activeView)) {
       view('nickname',true);
       if(!dialog.open)dialog.showModal();
-    } else if (dialog.open && !recovering && activeView !== 'mfa-setup') view('profile',true);
+    } else if (dialog.open && !recovering && !['mfa-setup','mfa-remove','switch'].includes(activeView)) view('profile',true);
     if (dialog.open) void loadMyApplications();
   }
   async function showAvatar() {
@@ -672,12 +673,88 @@
       notify('Two-step verification successful.','success');
     });
   });
-  $('#mfa-remove').addEventListener('click',e=>run(e.currentTarget,async()=>{
-    if(!verifiedFactor) return;
-    if(!confirm('Disable two-step verification on this account?')) return;
-    assert(await api.auth.mfa.unenroll({factorId:verifiedFactor.id}));
-    await refresh();notify('Two-step verification disabled.','success');
-  }));
+  // Never unenroll a verified factor based on an old aal2 session alone.
+  // Explicitly challenge the user for a new 6-digit authenticator code.
+  $('#mfa-remove').addEventListener('click',()=>{
+    if(!currentUser || !verifiedFactor || mfaRequired) return;
+    $('#mfa-remove-form').reset();view('mfa-remove');$('#mfa-remove-code').focus();
+  });
+  $('#mfa-remove-cancel').addEventListener('click',()=>{$('#mfa-remove-form').reset();view('profile');});
+  $('#mfa-remove-form').addEventListener('submit',e=>{
+    e.preventDefault();const form=e.currentTarget;
+    if(!form.reportValidity())return;
+    run(form.querySelector('[type="submit"]'),async()=>{
+      if(mfaRequired||!currentUser||!verifiedFactor)throw {publicMessage:'Sign in with your 2FA account first.'};
+      const code=$('#mfa-remove-code').value.trim();
+      if(!/^[0-9]{6}$/.test(code))throw {publicMessage:'Enter a valid 6-digit code.'};
+      const factorId=verifiedFactor.id;
+      assert(await api.auth.mfa.challengeAndVerify({factorId,code}));
+      form.reset();
+      assert(await api.auth.mfa.unenroll({factorId}));
+      // The provider might cache the old aal2 level briefly; refresh it.
+      await api.auth.refreshSession();
+      view('profile');await refresh();
+      notify('The code was verified. Two-step verification is now disabled.','success');
+    });
+  });
+  // Optional local shortcuts: only account labels + emails, never sessions or credentials.
+  const accountsKey='vxsk_account_shortcuts_v1';
+  function rememberedAccounts(){
+    try { const a=JSON.parse(localStorage.getItem(accountsKey)||'[]');
+      return Array.isArray(a)?a.filter(x=>typeof x.email==='string'&&x.email.length<255&&x.email.includes('@')).slice(0,5):[];
+    }catch(_){return [];}
+  }
+  function saveRememberedAccount(user){
+    if(!user?.email)return;
+    try {const email=user.email.trim().toLowerCase();const name=nicknameFor(user).slice(0,24);
+      const items=rememberedAccounts().filter(x=>x.email!==email);
+      localStorage.setItem(accountsKey,JSON.stringify([{email,name},...items].slice(0,5)));
+    }catch(_){notify('Browser did not permit saving this account shortcut.','error');}
+  }
+  function showSwitchChoices(){
+    const container=$('#saved-account-shortcuts');container.replaceChildren();
+    const all=rememberedAccounts();
+    if(!all.length){const item=document.createElement('p');item.textContent='No accounts saved on this device. Sign in with Google, Discord or email below.';container.append(item);}
+    all.forEach(item=>{
+      const button=document.createElement('button');button.type='button';button.className='saved-account';
+      button.textContent=(item.name||'PLAYER')+' · '+item.email;
+      button.addEventListener('click',()=>{view('signin');$('#signin-email').value=item.email;$('#signin-password').focus();});
+      container.append(button);
+    });
+    view('switch');
+  }
+  async function switchAccount(){
+    if(!configured())return;
+    if(busy)return;
+    // A single browser tab has one active Supabase session. Never stash a second session.
+    try {
+      assert(await api.auth.signOut());
+      currentUser=null;verifiedFactor=null;mfaRequired=false;recovering=false;
+      clearMyApplications();resetNav();$('#signin-form')?.reset();
+      if(!dialog.open)dialog.showModal();
+      showSwitchChoices();
+      notify('Signed out safely. Select an account or sign in with Google / Discord.','success');
+    }catch(_){notify('Could not switch accounts. Please try again.','error');}
+  }
+  $('#account-switch')?.addEventListener('click',switchAccount);
+  $('#forget-accounts')?.addEventListener('click',()=>{
+    try{localStorage.removeItem(accountsKey);}catch(_){}
+    $('#remember-account-switch').checked=false;
+    notify('Saved account shortcuts removed from this browser.','success');
+  });
+  $('#remember-account-switch')?.addEventListener('change',e=>{
+    if(e.target.checked){
+      if(!confirm('Save this account email as a sign-in shortcut on this browser? Do not enable this on a shared device.')){
+        e.target.checked=false;return;
+      }
+      saveRememberedAccount(currentUser);
+      notify('Email shortcut saved for this device only. Your session, password and 2FA code were not saved.','success');
+    }else if(currentUser?.email){
+      try{localStorage.setItem(accountsKey,JSON.stringify(rememberedAccounts().filter(x=>x.email!==currentUser.email.toLowerCase())));}catch(_){}
+      notify('This account shortcut removed.','success');
+    }
+  });
+  $('#switch-go-signin')?.addEventListener('click',()=>{view('signin');$('#signin-email').focus();});
   async function signout() {
     if(!configured())return;
     try {assert(await api.auth.signOut());$('#account-staff-link').hidden=true;currentUser=null;recovering=false;mfaRequired=false;clearMyApplications();view('signin');notify('Signed out of VXSK.','success');resetNav();}
