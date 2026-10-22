@@ -1,5 +1,5 @@
 /* VXSK three-universe calendar: dates supplied by the event organizers.
-   V12.8.8 STAGING mode applications require the accompanying secure registration SQL migration. */
+   V12.8.9 STAGING mode applications require the accompanying secure registration SQL migration. */
 'use strict';
 (() => {
   const root=document.getElementById('season-detail');
@@ -13,13 +13,13 @@
       {mode:'3v3',title:'3V3 SHOWMATCHES',from:'2026-12-25',to:'2027-01-25',description:'The ultimate team battle.'},
       {mode:'Freestyle',title:'FREESTYLE MASTERS',from:'2027-02-01',to:'2027-02-28',description:'The art of the impossible.'}
     ]},
-    lol:{game:'League of Legends',title:'LEAGUE OF LEGENDS',desc:'ARAM battles, Summoner’s Rift and a special Mundo showdown.',images:['assets/showcase-league-jinx.webp','assets/game-league.webp','assets/game-league-custom.webp','assets/game-league.webp'],accent:'lol',months:[
+    lol:{game:'League of Legends',title:'LEAGUE OF LEGENDS',desc:'ARAM battles, Summoner’s Rift and a special Mundo showdown.',images:['assets/lol-1v1-howling-abyss.jpg','assets/lol-5v5-aram-ornn.webp','assets/game-league-custom.webp','assets/lol-mundo-showmatch.jpg'],accent:'lol',months:[
       {mode:'1v1 ARAM',title:'1V1 ARAM',from:'2027-03-01',to:'2027-03-28',description:'One versus one on the Howling Abyss.'},
       {mode:'5v5 ARAM',title:'5V5 ARAM',from:'2027-04-01',to:'2027-04-28',description:'Full-team ARAM showmatches.'},
       {mode:"5v5 Summoner's Rift",title:'5V5 SUMMONER’S RIFT',from:'2027-05-01',to:'2027-05-28',description:'Five-player teams on Summoner’s Rift.'},
       {mode:'Mundo Showmatch',title:'MUNDO SHOWMATCH',from:'2027-07-01',to:'2027-07-28',description:'Special Dr. Mundo-themed showmatches.'}
     ]},
-    valorant:{game:'VALORANT',title:'VALORANT',desc:'Skirmishes, team showmatches and a points-based Deathmatch finale.',images:['assets/showcase-valorant-team.webp','assets/game-valorant.webp','assets/game-valorant-new.webp','assets/game-valorant-custom.webp'],accent:'valorant',months:[
+    valorant:{game:'VALORANT',title:'VALORANT',desc:'Skirmishes, team showmatches and a points-based Deathmatch finale.',images:['assets/showcase-valorant-team.webp','assets/valorant-5v5-phoenix-jett.webp','assets/valorant-2v2-skirmish.jpg','assets/game-valorant-custom.webp'],accent:'valorant',months:[
       {mode:'1v1 Skirmish',title:'1V1 SKIRMISH',from:'2027-08-01',to:'2027-08-28',description:'One-on-one tactical duels.'},
       {mode:'5v5 Showmatch',title:'5V5 SHOWMATCH',from:'2027-09-01',to:'2027-09-28',description:'Five-player tactical showmatches.'},
       {mode:'2v2 Skirmish',title:'2V2 SKIRMISH',from:'2027-10-01',to:'2027-10-28',description:'Duo tactical battles.'},

@@ -833,3 +833,11 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .community-privacy-controls label{display:flex;align-items:start;gap:10px;font:600 12px/1.5 var(--body);color:#d4dcf7;cursor:pointer}
 .community-privacy-controls input{accent-color:#9955e5;width:17px;height:17px;flex:0 0 17px;margin-top:1px}
 .community-privacy-controls button{border-radius:9px;font-size:11px}
+
+/* V12.8.9 — Staff photos are shown from the original uploads; no face filters or retouching. */
+.staff-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.staff-card .staff-photo img{filter:none}
+.staff-card:hover .staff-photo img{filter:none}
+.staff-card--cabaka .staff-meta p{max-width:100%}
+@media(max-width:900px){.staff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.staff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
