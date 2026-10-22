@@ -945,3 +945,8 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 #vxsk-call-share[hidden]{display:none}
 #vxsk-call-video:has(#vxsk-local-video:not([src])){background:#060c19}
 @media(max-width:680px){.nav-friends-panel:not([hidden]){left:10px;right:10px;width:auto}}
+
+/* V12.8.16: safe connection diagnostics — no candidate addresses exposed. */
+.vxsk-call-network-info{white-space:pre-line;border:1px solid #4e779d;background:#0a1931;color:#e1eaff;border-radius:12px;padding:12px 15px;line-height:1.7;font:600 12px/1.7 var(--body);overflow-wrap:anywhere;margin:8px 0 14px}
+.vxsk-call-network-info[hidden]{display:none}
+#vxsk-call-network{background:linear-gradient(110deg,#224463,#2c386c);border-color:#66a9cb}

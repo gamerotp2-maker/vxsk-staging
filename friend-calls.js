@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.15: resilient ICE, consented screen sharing, stronger original call tones, private avatars.
+// VXSK STAGING V12.8.16: free ICE restart answer fix and privacy-safe call diagnostics.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -13,6 +13,7 @@
   const mediaBox = $('vxsk-call-video'), remoteVideo = $('vxsk-remote-video');
   const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio');
   const playMediaButton=$('vxsk-call-play-media');
+  const networkButton=$('vxsk-call-network'), networkInfo=$('vxsk-call-network-info');
   const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
   let collectingMedia=false, updating=false, checkingInbox=false;
@@ -29,7 +30,11 @@
   const tones={incoming:new Audio('assets/vxsk-incoming-ring.wav'),outgoing:new Audio('assets/vxsk-outgoing-ring.wav')};
   for(const el of Object.values(tones)){el.loop=true;el.preload='auto';}
   tones.incoming.volume=.9;tones.outgoing.volume=.65;
-  let iceServers=[{urls:'stun:stun.l.google.com:19302'}],hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
+  // Free-only VXSK staging: STUN needs no account or billing. To enable TURN
+  // later, change this flag only after configuring secure server-side credentials.
+  const freeStunOnly=true;
+  const freeStunServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
+  let iceServers=freeStunServers,hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
   let videoSender=null,shareStream=null,shareTrack=null,sharing=false,friendScreen=false;
   let callStartedAt=0;
   let meterCtx=null,meterRaf=0,localAnalyser=null,remoteAnalyser=null;
@@ -95,7 +100,10 @@
     });
   }
   async function getIceServers(){
-    const fallback=[{urls:'stun:stun.l.google.com:19302'}];
+    const fallback=freeStunServers;
+    // Avoid an unnecessary Edge Function request (and up to 6s delay)
+    // when no paid TURN provider is configured for this free-only build.
+    if(freeStunOnly)return {servers:fallback,relay:false};
     // TURN keys stay server-side in the Supabase Edge Function. The browser only
     // gets temporary scoped ICE credentials if a real active call is authorized.
     const instance=api();
@@ -254,6 +262,7 @@
     updateScreenUi();
     if(voices)voices.hidden=call.medium!=='audio'||call.state!=='accepted';
     if(playMediaButton)playMediaButton.hidden=call.state!=='accepted'||!playNeedsGesture;
+    if(networkButton)networkButton.hidden=call.state!=='accepted';
     updateRingtone();mini();
   }
   function stopMedia(){
@@ -261,14 +270,15 @@
     stopTones();
     if(iceRetryTimer)clearTimeout(iceRetryTimer);iceRetryTimer=null;iceRetry=0;iceRestarting=false;
     stopScreenShare();videoSender=null;friendScreen=false;
-    stopScreenShare();videoSender=null;friendScreen=false;
     try{peerConnection?.close();}catch(_){} peerConnection=null;
     localMedia?.getTracks().forEach(track=>track.stop());localMedia=null;
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
     localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;
     pendingIce=[];signaling=Promise.resolve();lastSignal=0;collectingMedia=false;
-    videoDescriptionQueued=false;videoIceBuffer=[];playNeedsGesture=false;iceReady=false;hasTurn=false;iceServers=[{urls:'stun:stun.l.google.com:19302'}];
+    videoDescriptionQueued=false;videoIceBuffer=[];playNeedsGesture=false;iceReady=false;hasTurn=false;iceServers=freeStunServers;
     if(playMediaButton)playMediaButton.hidden=true;
+    if(networkButton)networkButton.hidden=true;
+    if(networkInfo){networkInfo.hidden=true;networkInfo.textContent='';}
   }
   function dismiss(message=''){
     stopMedia();call=null;minimized=false;
@@ -475,7 +485,10 @@
           if(call)sendDescription('answer');
         }else if(item.kind==='answer'&&call?.role==='caller'&&item.body?.type==='answer'){
           if(!peerConnection||!peerConnection.localDescription)break;
-          if(!peerConnection.remoteDescription){
+          // CRITICAL: an ICE restart creates a NEW offer while a previous remote
+          // answer already exists. Accept the new answer whenever we're waiting
+          // on a local offer, not only when remoteDescription is absent.
+          if(peerConnection.signalingState==='have-local-offer'){
             await peerConnection.setRemoteDescription(item.body);
             await flushIce();
           }
@@ -486,6 +499,46 @@
         break; // Do not silently swallow or permanently skip a failed SDP.
       }
     }
+  }
+  async function inspectConnection(){
+    if(!networkInfo)return;
+    if(!call||!peerConnection){networkInfo.textContent='No active peer connection yet.';networkInfo.hidden=false;return;}
+    const pc=peerConnection;
+    const summary={
+      peer:pc.connectionState||'unknown',
+      ice:pc.iceConnectionState||'unknown',
+      signaling:pc.signalingState||'unknown',
+      relayConfigured:hasTurn,
+      retries:iceRetry,
+      localAudio:localMedia?.getAudioTracks().filter(t=>t.readyState==='live').length||0,
+      localVideo:localMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
+      remoteAudio:remoteMedia?.getAudioTracks().filter(t=>t.readyState==='live').length||0,
+      remoteVideo:remoteMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
+      audioPlaying:!!remoteAudio?.srcObject&&!remoteAudio.paused
+    };
+    // Report only candidate TYPES, never IP addresses, port numbers, or raw SDP.
+    let path='unknown';
+    try{
+      const stats=await pc.getStats();
+      let selected=null;
+      stats.forEach(report=>{if(report.type==='transport'&&report.selectedCandidatePairId)selected=stats.get(report.selectedCandidatePairId);});
+      if(!selected)stats.forEach(report=>{if(report.type==='candidate-pair'&&report.nominated&&report.state==='succeeded')selected=report;});
+      if(selected){
+        const local=stats.get(selected.localCandidateId),remote=stats.get(selected.remoteCandidateId);
+        const types=[local?.candidateType,remote?.candidateType].filter(Boolean);
+        if(types.includes('relay'))path='relay';
+        else if(types.length)path='direct';
+      }
+    }catch(_){/* Some browsers don't expose selected candidate statistics. */}
+    const lines=[
+      'Connection: '+summary.peer+' | ICE: '+summary.ice+' | Signaling: '+summary.signaling,
+      'Path: '+path+' | TURN configured: '+(summary.relayConfigured?'yes':'no')+' | Retries: '+summary.retries,
+      'Your tracks: audio '+summary.localAudio+', video '+summary.localVideo,
+      'Friend tracks: audio '+summary.remoteAudio+', video '+summary.remoteVideo,
+      'Friend sound playback: '+(summary.audioPlaying?'playing':'not playing yet')
+    ];
+    if(!hasTurn)lines.push('Free STUN-only mode: some networks cannot make direct calls without a relay.');
+    networkInfo.textContent=lines.join('\n');networkInfo.hidden=false;
   }
   async function pollCall(){
     if(!call||updating)return;
@@ -578,6 +631,7 @@
   document.addEventListener('pointerdown',()=>{if(ringEnabled&&!playingTone)void unlockRingtone();},{passive:true,once:true});
   try{ringEnabled=localStorage.getItem('vxsk-call-ringtone')!=='false';}catch(_){ringEnabled=true;}
   ringtoneUi();
+  networkButton?.addEventListener('click',()=>{void inspectConnection();});
   playMediaButton?.addEventListener('click',async()=>{
     if(!call)return;
     // An explicit click allows unmuted audio on browsers with autoplay protection.

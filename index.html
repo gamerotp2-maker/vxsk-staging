@@ -30,7 +30,7 @@
   <script src="community.js?v=12.8.15-avatar-nav" defer></script>
   <script src="group-chat.js?v=12.8.14" defer></script>
   <script src="ui-polish.js?v=12.8.8" defer></script>
-  <script src="friend-calls.js?v=12.8.15-connection-screen-rings" defer></script>
+  <script src="friend-calls.js?v=12.8.16-free-ice-restart" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -41,7 +41,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.15</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.16</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -291,7 +291,7 @@
         </div>
         <div class="vxsk-call-video" id="vxsk-call-video" hidden><span id="vxsk-call-share-label" class="vxsk-screen-label" hidden>SCREEN SHARE</span><video id="vxsk-remote-video" autoplay playsinline muted aria-label="Friend video"></video><video id="vxsk-local-video" autoplay playsinline muted aria-label="Your camera preview"></video></div>
         <audio id="vxsk-remote-audio" autoplay></audio>
-        <div id="vxsk-call-actions" class="vxsk-call-actions"><button type="button" id="vxsk-call-accept" hidden>ACCEPT CALL</button><button type="button" id="vxsk-call-decline" hidden>DECLINE</button><button type="button" id="vxsk-call-play-media" hidden>PLAY FRIEND SOUND</button><button type="button" id="vxsk-call-mute" hidden>MUTE MICROPHONE</button><button type="button" id="vxsk-call-camera" hidden>CAMERA OFF</button><button type="button" id="vxsk-call-share" hidden>SHARE SCREEN</button><button type="button" id="vxsk-call-hangup" hidden>END CALL</button></div>
+        <div id="vxsk-call-actions" class="vxsk-call-actions"><button type="button" id="vxsk-call-accept" hidden>ACCEPT CALL</button><button type="button" id="vxsk-call-decline" hidden>DECLINE</button><button type="button" id="vxsk-call-play-media" hidden>PLAY FRIEND SOUND</button><button type="button" id="vxsk-call-mute" hidden>MUTE MICROPHONE</button><button type="button" id="vxsk-call-camera" hidden>CAMERA OFF</button><button type="button" id="vxsk-call-share" hidden>SHARE SCREEN</button><button type="button" id="vxsk-call-hangup" hidden>END CALL</button><button type="button" id="vxsk-call-network" hidden>CHECK CONNECTION</button></div><p id="vxsk-call-network-info" class="vxsk-call-network-info" role="status" hidden></p>
         <p class="auth-help">X minimizes; only END CALL hangs up. Use SHARE SCREEN to choose a window or screen; your browser will ask first. Calls are never recorded by VXSK. Ring volume and background playback depend on browser and device settings.</p>
       </dialog>
   <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title">
