@@ -1,4 +1,4 @@
-/* VXSK V12.8.29 — Owner-only staff roles UX. Authority remains exclusively in Supabase RPCs. */
+/* VXSK V12.8.31 — Owner-only staff roles UX + truthful per-RPC diagnostics. Authority remains exclusively in Supabase RPCs. */
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
@@ -9,11 +9,15 @@
   const show=(msg,kind='')=>{const el=$('owner-team-feedback');el.textContent=msg;el.className='notice'+(kind?' '+kind:'');};
   const elem=(tag,text,className)=>{const n=document.createElement(tag);n.textContent=String(text??'');if(className)n.className=className;return n;};
   const api=()=>window.VXSK_STAFF_API;
-  function describe(error){
-    const message=String(error?.message||'Could not reach Supabase.');
-    if(/does not exist|not found|schema cache|PGRST202|42883/i.test(message))return 'Install the V12.8.29 Owner Staff Manager SQL in Supabase STAGING, then refresh this page.';
-    if(/Owner and 2FA|42501|permission denied/i.test(message))return 'Owner permission + 2FA verification required. Reopen Staff Command after login.';
-    return message.slice(0,280);
+  function describe(error,name=''){
+    const code=String(error?.code||'UNKNOWN');
+    const message=String(error?.message||'Could not reach Supabase.').slice(0,300);
+    const prefix=(name?name+': ':'')+'['+code+'] ';
+    if(code==='PGRST202'||code==='42883'||/schema cache/i.test(message))
+      return prefix+'The website API cannot find this function: '+message+' Check the connected Supabase project and reload its PostgREST schema. SQL Editor success alone does not prove the website is using that project.';
+    if(code==='42501'||/Owner and 2FA|permission denied/i.test(message))
+      return prefix+'Owner role + verified 2FA required. Sign out/in and finish authenticator verification. '+message;
+    return prefix+message;
   }
   async function call(name,args){
     const db=api();if(!db)throw Error('Staff session unavailable. Refresh the Staff Command.');
@@ -67,17 +71,19 @@
     const assigned=Array.isArray(items)?items:[];
     $('owner-team-count').textContent=String(assigned.length);
     fillResults($('owner-team-members'),assigned,'No staff assignments found.','team');
+    return assigned.length;
   }
   async function loadHistory(){
     const history=await call('vxsk_owner_staff_history');
     const target=$('owner-team-history');target.replaceChildren();
-    if(!Array.isArray(history)||!history.length){target.append(elem('p','No role changes through this manager yet.'));return;}
+    if(!Array.isArray(history)||!history.length){target.append(elem('p','No role changes through this manager yet.'));return 0;}
     for(const change of history){
       const entry=elem('div','', 'owner-team-history-entry');
       entry.append(elem('strong',(change.target_nickname||'VXSK user')+' · '+String(change.previous_role||'player').toUpperCase()+' → '+String(change.new_role||'player').toUpperCase()));
       const d=new Date(change.changed_at);entry.append(elem('small',Number.isNaN(d.getTime())?'—':d.toLocaleString()));
       target.append(entry);
     }
+    return history.length;
   }
   async function search(query){
     const q=String(query||'').trim();lastQuery=q;
@@ -92,9 +98,22 @@
   }
   async function open(){
     if(!ready||panel.hidden)return;
-    try{
-      await Promise.all([loadTeam(),loadHistory()]);
-    }catch(err){show(describe(err),'error');}
+    show('Loading current team and recent changes…');
+    // A failed audit/history call must never hide successfully loaded team members.
+    const checks=await Promise.allSettled([loadTeam(),loadHistory()]);
+    const labels=['vxsk_owner_staff_list','vxsk_owner_staff_history'];
+    const errors=checks.flatMap((result,i)=>result.status==='rejected'?[describe(result.reason,labels[i])]:[]);
+    if(errors.length){
+      show('RPC diagnostic — '+errors.join(' | '),'error');
+      checks.forEach((result,i)=>{
+        if(result.status!=='rejected')return;
+        const id=i===0?'owner-team-members':'owner-team-history';
+        $(id).replaceChildren(elem('p','Could not load: '+labels[i]+'. Read the error above.','small-muted'));
+      });
+      return;
+    }
+    const project=String(window.VXSK_SUPABASE?.url||'').replace(/^https:\/\//,'').replace(/\.supabase\.co\/?$/,'');
+    show('Team loaded: '+checks[0].value+' role assignments. Supabase project: '+project+'.','success');
   }
   $('owner-team-refresh').addEventListener('click',open);
   $('owner-team-search-form').addEventListener('submit',event=>{event.preventDefault();void search($('owner-team-search').value);});
