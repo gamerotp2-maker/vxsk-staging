@@ -841,3 +841,10 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .staff-card--cabaka .staff-meta p{max-width:100%}
 @media(max-width:900px){.staff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.staff-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* V12.8.10 — deletion errors and inline confirmation remain visible at the request. */
+.my-opponent-actions{gap:8px;flex-wrap:wrap}
+.opponent-delete-cancel{appearance:none;cursor:pointer;border:1px solid rgba(150,151,185,.64);border-radius:9px;background:rgba(31,37,72,.65);color:#dfe5ff;padding:9px 12px;font:800 10px var(--body)}
+.opponent-delete-feedback{margin:8px 0 0;padding:9px 11px;border:1px solid rgba(124,169,224,.5);border-radius:9px;background:rgba(32,58,90,.28);color:#d8edff;font:600 11px/1.5 var(--body);overflow-wrap:anywhere}
+.opponent-delete-feedback.is-warning{border-color:rgba(249,190,111,.65);color:#ffe3af;background:rgba(87,60,20,.24)}
+.opponent-delete-feedback.is-error{border-color:rgba(251,115,142,.74);color:#ffd1df;background:rgba(103,30,50,.3)}

@@ -159,25 +159,46 @@
       ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
       : 'Date unavailable';
   }
-  // Permanently remove only the signed-in player's own opponent request.
-  // Supabase RPC independently verifies request ownership; hiding a button is not security.
-  async function deleteMyOpponentRequest(itemId, button) {
-    if (!api || !currentUser || mfaRequired || !itemId || button.disabled) return;
-    if (!window.confirm('Permanently delete this No Opponent request? It will disappear from your My Account and the VXSK Staff Panel. This cannot be undone.')) return;
-    const accountId = currentUser.id;
-    button.disabled = true;
-    button.textContent = 'DELETING…';
+  // Delete requests are confirmed inline so a blocked browser dialog cannot
+  // silently stop the action. The RPC (not the UI) authorizes the deletion.
+  function deleteOpponentError(error) {
+    const detail=String(error?.message || '').slice(0,250);
+    if (error?.code === 'PGRST202' || /could not find the function|schema cache|does not exist/i.test(detail))
+      return 'Delete is not installed in VXSK-STAGING. Run the V12.8.10 opponent-delete SQL in the STAGING Supabase SQL Editor.';
+    if (error?.code === '42501' || /permission denied|not authorized/i.test(detail))
+      return 'Supabase denied deletion. Check that you are signed in with the correct account and that the delete RPC has EXECUTE permission.';
+    return 'Deletion failed: ' + (detail || 'Check Supabase connection and try again.');
+  }
+  async function deleteMyOpponentRequest(itemId, button, feedback, cancelButton) {
+    if (!api || !currentUser || mfaRequired || !itemId) {
+      feedback.textContent='Sign in fully before deleting this request.';
+      feedback.hidden=false;
+      return;
+    }
+    if (button.disabled) return;
+    const accountId=currentUser.id;
+    button.disabled=true;
+    if(cancelButton)cancelButton.disabled=true;
+    button.textContent='DELETING…';
+    feedback.hidden=false;
+    feedback.className='opponent-delete-feedback';
+    feedback.textContent='Removing your request securely…';
     try {
       const {data: deleted, error} = await api.rpc('delete_opponent_request', {p_request_id: itemId});
-      if (error) throw error;
-      if (deleted !== true) throw new Error('Request was not deleted. It may already be deleted or does not belong to this account.');
-      if (currentUser?.id !== accountId) return;
-      notify('Your No Opponent request was permanently deleted.','success');
+      if(error)throw error;
+      if(deleted !== true)throw new Error('Supabase refused deletion. This request may not belong to this account, or it may already be deleted.');
+      if(currentUser?.id !== accountId)return;
       await loadMyOpponentRequests();
-    } catch (error) {
-      notify(error?.message || 'Could not delete this opponent request. Try Refresh.', 'error');
-      button.disabled = false;
-      button.textContent = 'DELETE REQUEST';
+      const msg=$('#my-opponent-message');
+      if(msg)msg.textContent='Your No Opponent request was permanently deleted. It is also removed from the Staff Panel.';
+    } catch(error) {
+      feedback.className='opponent-delete-feedback is-error';
+      feedback.textContent=deleteOpponentError(error);
+      feedback.hidden=false;
+      button.disabled=false;
+      button.textContent='TRY DELETE AGAIN';
+      if(cancelButton)cancelButton.disabled=false;
+      // Error stays by the affected request, not at the bottom of a tall dialog.
     }
   }
   // No Opponent? requests are stored separately from event registrations.
@@ -237,14 +258,42 @@
         detail.textContent = `Requested ${readableDate(item.submitted_at)} · Ref ${String(item.id).slice(0,8)} · ${explanation}`;
         const actions = document.createElement('div');
         actions.className = 'my-opponent-actions';
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'my-opponent-delete';
-        deleteButton.textContent = 'DELETE REQUEST';
-        deleteButton.setAttribute('aria-label', `Permanently delete ${game} ${mode} opponent request`);
-        deleteButton.addEventListener('click', () => deleteMyOpponentRequest(item.id, deleteButton));
-        actions.append(deleteButton);
-        entry.append(line, detail, actions);
+        const deleteButton=document.createElement('button');
+        deleteButton.type='button';
+        deleteButton.className='my-opponent-delete';
+        deleteButton.textContent='DELETE REQUEST';
+        deleteButton.setAttribute('aria-label', `Delete ${game} ${mode} opponent request`);
+        const cancelButton=document.createElement('button');
+        cancelButton.type='button';
+        cancelButton.className='opponent-delete-cancel';
+        cancelButton.textContent='CANCEL';
+        cancelButton.hidden=true;
+        const feedback=document.createElement('p');
+        feedback.className='opponent-delete-feedback';
+        feedback.setAttribute('role','status');
+        feedback.setAttribute('aria-live','polite');
+        feedback.hidden=true;
+        let confirmed=false;
+        deleteButton.addEventListener('click',()=>{
+          if(!confirmed){
+            confirmed=true;
+            deleteButton.textContent='CONFIRM PERMANENT DELETE';
+            cancelButton.hidden=false;
+            feedback.hidden=false;
+            feedback.className='opponent-delete-feedback is-warning';
+            feedback.textContent='Delete this No Opponent request permanently? Click CONFIRM to remove it from My Account and Staff Panel.';
+            return;
+          }
+          void deleteMyOpponentRequest(item.id,deleteButton,feedback,cancelButton);
+        });
+        cancelButton.addEventListener('click',()=>{
+          confirmed=false;
+          cancelButton.hidden=true;
+          deleteButton.textContent='DELETE REQUEST';
+          feedback.textContent='';feedback.hidden=true;
+        });
+        actions.append(deleteButton,cancelButton);
+        entry.append(line, detail, actions, feedback);
         frag.append(entry);
       }
       if(spotlight){

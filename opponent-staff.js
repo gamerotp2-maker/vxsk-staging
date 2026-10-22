@@ -57,23 +57,64 @@
         // The RPC validates actual role + aal2; not just the visible UI.
         const deleteButton=el('button','DELETE REQUEST','opponent-delete');
         deleteButton.type='button';
-        deleteButton.setAttribute('aria-label',`Permanently delete opponent request for ${row.form_data?.playerUsername||'player'}`);
+        deleteButton.setAttribute('aria-label',`Delete opponent request for ${row.form_data?.playerUsername||'player'}`);
+        const cancelButton=el('button','CANCEL','opponent-delete-cancel');
+        cancelButton.type='button';cancelButton.hidden=true;
+        const feedback=el('p','','opponent-delete-feedback');
+        feedback.setAttribute('role','status');
+        feedback.setAttribute('aria-live','polite');
+        feedback.hidden=true;
+        let confirmed=false;
+        const deleteErrorMessage=error=>{
+          const detail=String(error?.message||'').slice(0,250);
+          if(error?.code==='PGRST202'||/could not find the function|schema cache|does not exist/i.test(detail))
+            return 'Delete RPC is missing. Run V12.8.10 opponent-delete SQL in VXSK-STAGING, not production.';
+          if(error?.code==='42501'||/permission denied/i.test(detail))
+            return 'Supabase refused permission. Staff need reviewer/owner role and verified 2FA (aal2).';
+          return 'Deletion failed: '+(detail||'Check your login, staff role, 2FA, and Supabase connection.');
+        };
         deleteButton.addEventListener('click',async()=>{
-          if(!window.confirm(`Permanently delete the No Opponent request for ${row.form_data?.playerUsername||'this player'}? It will disappear from Staff Panel and the player’s My Account. This cannot be undone.`))return;
-          if(window.prompt('Type DELETE to permanently remove this request:')!=='DELETE')return;
-          deleteButton.disabled=true;deleteButton.textContent='DELETING…';
+          if(!confirmed){
+            confirmed=true;
+            deleteButton.textContent='CONFIRM PERMANENT DELETE';
+            cancelButton.hidden=false;
+            feedback.hidden=false;
+            feedback.className='opponent-delete-feedback is-warning';
+            feedback.textContent='This permanently removes the player’s request from both the Staff Panel and My Account. Click CONFIRM to continue.';
+            return;
+          }
+          if(deleteButton.disabled)return;
+          deleteButton.disabled=true;
+          cancelButton.disabled=true;
+          deleteButton.textContent='DELETING…';
+          feedback.className='opponent-delete-feedback';
+          feedback.textContent='Removing request securely…';
           try{
             const {data:deleted,error:deleteError}=await api.rpc('delete_opponent_request',{p_request_id:row.id});
             if(deleteError)throw deleteError;
-            if(deleted!==true)throw new Error('Deletion was not accepted. Check 2FA or role permissions.');
-            notice('Opponent request permanently deleted.','success');
+            if(deleted!==true)throw new Error('Supabase refused deletion. Confirm your staff role, 2FA and that the request still exists.');
+            // Remove immediately. Then re-fetch the inbox to confirm the record is gone.
+            card.remove();
             await load();
+            notice('Opponent request permanently deleted. It is no longer visible to the player.','success');
           }catch(error){
-            notice(error?.message||'Could not delete this request.','error');
-            deleteButton.disabled=false;deleteButton.textContent='DELETE REQUEST';
+            feedback.hidden=false;
+            feedback.className='opponent-delete-feedback is-error';
+            feedback.textContent=deleteErrorMessage(error);
+            notice('Deletion failed. See the error beside the request.','error');
+            deleteButton.disabled=false;
+            cancelButton.disabled=false;
+            deleteButton.textContent='TRY DELETE AGAIN';
           }
         });
-        actions.append(deleteButton);
+        cancelButton.addEventListener('click',()=>{
+          confirmed=false;
+          cancelButton.hidden=true;
+          deleteButton.textContent='DELETE REQUEST';
+          feedback.hidden=true;feedback.textContent='';
+        });
+        actions.append(deleteButton,cancelButton);
+        card.append(feedback);
         card.append(actions);container.append(card);
       }
       notice(requests.length===200?'Showing newest 200 requests; pagination needed for older records.':'');

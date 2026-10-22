@@ -57,3 +57,10 @@
 .opponent-entry-actions .opponent-delete{margin-left:auto;border:1px solid #db6272;background:rgba(140,36,63,.2);color:#ffd6dd}
 .opponent-entry-actions .opponent-delete:hover,.opponent-entry-actions .opponent-delete:focus-visible{background:rgba(160,30,64,.48);color:white}
 .opponent-entry-actions .opponent-delete:disabled{opacity:.55;cursor:wait}
+
+/* V12.8.10 — inline, accessible two-step deletion confirmation. */
+.opponent-entry-actions .opponent-delete-cancel{border:1px solid #737f9f;border-radius:8px;background:#202644;color:#e1e8ff}
+.opponent-entry-actions .opponent-delete,.opponent-entry-actions .opponent-delete-cancel{border-radius:8px}
+.opponent-entry .opponent-delete-feedback{margin:9px 0;padding:9px 11px;border:1px solid #537b9e;border-radius:8px;background:#1d2b44;color:#e4e9ff;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.opponent-entry .opponent-delete-feedback.is-warning{border-color:#c68d48;color:#ffe2b2;background:#433020}
+.opponent-entry .opponent-delete-feedback.is-error{border-color:#e36e8c;color:#ffccd6;background:#452032}
