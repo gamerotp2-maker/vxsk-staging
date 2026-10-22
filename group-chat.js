@@ -10,6 +10,7 @@
   const feedback=$('vxsk-group-feedback'), inviteMore=$('vxsk-group-invite'), leave=$('vxsk-group-leave');
   const countLabel=$('vxsk-groups-count');
   let selected=null,groups=[],friends=[],me=null,busy=false,lastIdentity=null,loading=false;
+  const avatarPaths=new Map();
   const text=(tag,body,css='')=>{const e=document.createElement(tag);e.textContent=body??'';if(css)e.className=css;return e;};
   const alert=msg=>{feedback.textContent=msg;};
   function api(){return window.VXSKAuth?.client;}
@@ -26,12 +27,38 @@
     }
     return data;
   }
+  function avatarFor(id,name,cls='vxsk-group-member-avatar'){
+    const a=text('span',String(name||'?').charAt(0).toUpperCase(),cls);
+    const path=avatarPaths.get(id)||friends.find(f=>f.peer_id===id)?.avatar_path;
+    if(id===me?.id){
+      const own=document.getElementById('nav-avatar');
+      if(own&&!own.hidden&&own.src){const im=document.createElement('img');im.alt='';im.src=own.src;im.onerror=()=>im.remove();a.append(im);}
+    }else if(path){void window.VXSKCommunity?.addVisibleAvatar?.(a,id,path);}
+    return a;
+  }
+  async function refreshAvatarPaths(ids){
+    const unique=[...new Set((ids||[]).filter(x=>typeof x==='string'))].slice(0,20);
+    if(!unique.length)return;
+    try{
+      const out=await rpc('vxsk_social_avatar_lookup',{p_ids:unique});
+      if(Array.isArray(out))out.forEach(item=>{if(item.user_id&&item.avatar_path)avatarPaths.set(item.user_id,item.avatar_path);});
+    }catch(_){/* If migration not applied, group text still works with initials. */}
+  }
+  function renderGroupPeople(members){
+    participants.replaceChildren();participants.classList.add('vxsk-group-people');
+    for(const member of members||[]){
+      const chip=text('span',null,'vxsk-group-member-chip');
+      chip.append(avatarFor(member.id,member.name),text('span',(member.name||'PLAYER')+(member.is_me?' (YOU)':'')));
+      participants.append(chip);
+    }
+    if(!(members||[]).length)participants.textContent='Accepted group members';
+  }
   function button(label,fn,variant=''){
     const b=text('button',label,'vxsk-group-btn '+variant);b.type='button';
     b.addEventListener('click',async()=>{b.disabled=true;try{await fn();}catch(err){alert(err.message);}finally{b.disabled=false;}});
     return b;
   }
-  function reset(){selected=null;groups=[];friends=[];thread.hidden=true;list.replaceChildren();inviteList.replaceChildren();posts.replaceChildren();countLabel.hidden=true;}
+  function reset(){avatarPaths.clear();selected=null;groups=[];friends=[];thread.hidden=true;list.replaceChildren();inviteList.replaceChildren();posts.replaceChildren();countLabel.hidden=true;}
   async function getFriends(){
     const state=await rpc('vxsk_social_my_state');
     friends=(Array.isArray(state?.links)?state.links:[]).filter(x=>x.status==='accepted');
@@ -40,7 +67,7 @@
     for(const f of friends){
       const label=document.createElement('label');label.className='vxsk-group-choice';
       const input=document.createElement('input');input.type='checkbox';input.value=f.peer_id;input.name='vxsk-group-invitee';
-      label.append(input,text('span',f.nickname||'VXSK PLAYER'));inviteList.append(label);
+      label.append(input,avatarFor(f.peer_id,f.nickname,'vxsk-group-choice-avatar'),text('span',f.nickname||'VXSK PLAYER'));inviteList.append(label);
     }
   }
   function friendsAvailable(group){
@@ -52,7 +79,8 @@
     if(!group){thread.hidden=true;selected=null;return;}
     selected=group.id;thread.hidden=false;
     title.textContent=group.name;
-    participants.textContent=(group.members||[]).map(m=>m.name+(m.is_me?' (YOU)':'')).join(' · ');
+    await refreshAvatarPaths((group.members||[]).map(m=>m.id));
+    renderGroupPeople(group.members||[]);
     inviteMore.hidden=group.owner!==me.id||!friendsAvailable(group).length;
     leave.textContent=group.owner===me.id?'DELETE GROUP':'LEAVE GROUP';
     await loadMessages();
@@ -65,7 +93,8 @@
     if(!Array.isArray(rows)){alert('You no longer have access to this group.');await refresh();return;}
     for(const r of rows){
       const p=text('div','', 'vxsk-group-post '+(r.from_me?'mine':''));
-      const header=text('div',r.nickname+' · '+new Date(r.at).toLocaleString(),'vxsk-group-post-meta');
+      const header=text('div',null,'vxsk-group-post-header');
+      header.append(avatarFor(r.sender,r.nickname,'vxsk-group-post-avatar'),text('span',r.nickname+' · '+new Date(r.at).toLocaleString(),'vxsk-group-post-meta'));
       p.append(header,text('p',r.body));
       if(!r.from_me){p.append(button('REPORT',async()=>{
         const reason=prompt('Why are you reporting this message? (4–200 characters)');
@@ -112,7 +141,7 @@
       if(selected){
         const still=groups.find(g=>g.id===selected&&g.status==='active');
         if(!still){selected=null;thread.hidden=true;}
-        else {participants.textContent=(still.members||[]).map(m=>m.name+(m.is_me?' (YOU)':'')).join(' · ');
+        else {await refreshAvatarPaths((still.members||[]).map(m=>m.id));renderGroupPeople(still.members||[]);
           inviteMore.hidden=still.owner!==me.id||!friendsAvailable(still).length;await loadMessages();}
       }
     }catch(e){alert(e.message||'Could not refresh groups.');}finally{loading=false;}

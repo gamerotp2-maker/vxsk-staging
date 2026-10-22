@@ -2,7 +2,7 @@
    auth tokens, requests with Authorization headers, responses with Set-Cookie,
    or RTC signaling. This is an installability / load optimization, not DDoS mitigation. */
 'use strict';
-const VER='vxsk-public-v12.8.26';
+const VER='vxsk-public-v12.8.28';
 const ASSETS=['./','./index.html','./arena.html','./styles.css','./arena-hub.css','./app.js','./arena-hub.js','./favicon.svg','./assets/vxsk-wordmark.webp'];
 self.addEventListener('install',ev=>ev.waitUntil(caches.open(VER).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()).catch(()=>{})));
 self.addEventListener('activate',ev=>ev.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('vxsk-public-')&&k!==VER).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

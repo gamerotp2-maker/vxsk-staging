@@ -1,4 +1,4 @@
-/* VXSK V12.8.22 — automatic verified-account discovery; accepted-friends-only messaging and consensual showmatch challenges. */
+/* VXSK V12.8.28 — desktop/mobile friends, avatar-safe rendering; automatic verified-account discovery; accepted-friends-only messaging and consensual showmatch challenges. */
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
@@ -138,6 +138,31 @@
     }
     return {ok:true,data};
   }
+  // Avatars live in a private Supabase bucket. Request a short-lived signed
+  // URL only for paths returned by an authorized RPC. Avatar failures must
+  // NEVER stop rendering a request or its ACCEPT / REJECT actions.
+  async function addAvatar(target,peerId,path){
+    if(!target || !peerId || typeof path!=='string' || !path.startsWith(peerId+'/'))return;
+    const storage=client?.storage;
+    if(!storage)return;
+    try{
+      const cached=signedAvatars.get(path);
+      let src=cached && cached.expires>Date.now()+30000 ? cached.url : null;
+      if(!src){
+        const {data,error}=await storage.from('vxsk-avatars').createSignedUrl(path,600);
+        if(error || !data?.signedUrl)return;
+        src=data.signedUrl;
+        signedAvatars.set(path,{url:src,expires:Date.now()+570000});
+      }
+      if(!target.isConnected || lastIdentity!==user?.id)return;
+      const img=document.createElement('img');
+      img.alt='';img.decoding='async';img.loading='lazy';
+      // Keep the fallback initial in place until the image actually loads.
+      img.onload=()=>{if(target.isConnected && lastIdentity===user?.id)target.replaceChildren(img);};
+      img.onerror=()=>{};
+      img.src=src;
+    }catch(_){/* A missing/expired avatar is cosmetic; the user actions stay visible. */}
+  }
   function avatarEl(name,icon=''){
     const label=(icon||((name||'?').trim().charAt(0).toUpperCase()));
     const a=el('span',label,'community-avatar'+(icon?' is-category-icon':''));
@@ -159,7 +184,7 @@
     const group=el('div',undefined,'community-entry-actions');buttons.forEach(b=>group.append(b));card.append(group);return card;
   }
   const showCommunity=()=>{
-    if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');}
+    if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');}
     document.getElementById('community')?.scrollIntoView({behavior:'smooth',block:'start'});
   };
   function renderMiniFriends(links=[]){
@@ -167,12 +192,13 @@
     navFriendsEntries.replaceChildren();
     const accepted=links.filter(x=>x.status==='accepted');
     const incoming=links.filter(x=>x.status==='pending'&&!x.outgoing);
-    if(!accepted.length&&!incoming.length){navFriendsEntries.append(el('p','No friends or requests yet. Use Add Friend to find players.'));return;}
+    const outgoing=links.filter(x=>x.status==='pending'&&x.outgoing);
+    if(!accepted.length&&!incoming.length&&!outgoing.length){navFriendsEntries.append(el('p','No friends or requests yet. Use Add Friend to find players.'));return;}
     if(incoming.length){navFriendsEntries.append(el('h4','REQUESTS ('+incoming.length+')'));
       for(const item of incoming){
         navFriendsEntries.append(makeEntry(item.nickname||'VXSK PLAYER','New invitation',[
-          action('ACCEPT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:true});if(r.ok)await refreshState();}),
-          action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok)await refreshState();},'danger')
+          action('ACCEPT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:true});if(r.ok&&r.data){note('Friend request accepted.');await refreshState();}else if(r.ok){note('This request is no longer pending. Refresh your friends.');await refreshState();}}),
+          action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok&&r.data){note('Friend request declined.');await refreshState();}else if(r.ok){note('This request is no longer pending. Refresh your friends.');await refreshState();}},'danger')
         ],item.peer_id,item.avatar_path));
       }
     }
@@ -185,6 +211,9 @@
           action('VIDEO',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER'))
         ],item.peer_id,item.avatar_path,Boolean(item.online)));
       }
+    }
+    if(outgoing.length){navFriendsEntries.append(el('h4','SENT REQUESTS ('+outgoing.length+')'));
+      for(const item of outgoing){navFriendsEntries.append(makeEntry(item.nickname||'VXSK PLAYER','Waiting for acceptance',[],item.peer_id,item.avatar_path));}
     }
   }
   function handleSearch(){
@@ -226,13 +255,22 @@
     const blocks=Array.isArray(snapshot.blocked)?snapshot.blocked:[];
     renderMiniFriends(links);
     await refreshAlerts({silent:true});
-    if(!links.length&&!blocks.length) friendsEl.append(el('p','No friends or invitations yet.'));
-    for(const item of links){
+    if(!links.some(x=>x.status==='accepted'||x.status==='pending')&&!blocks.length) friendsEl.append(el('p','No friends or invitations yet.')); 
+    const sortedLinks=[
+      ...links.filter(x=>x.status==='pending'&&!x.outgoing),
+      ...links.filter(x=>x.status==='accepted').sort((a,b)=>Number(b.online===true)-Number(a.online===true)||String(a.nickname).localeCompare(String(b.nickname))),
+      ...links.filter(x=>x.status==='pending'&&x.outgoing)
+    ];
+    let previousGroup='';
+    for(const item of sortedLinks){
+      const group=item.status==='accepted'?'YOUR FRIENDS':item.outgoing?'SENT REQUESTS':'FRIEND REQUESTS';
+      if(group!==previousGroup){friendsEl.append(el('h4',group,'community-group-title'));previousGroup=group;}
+
       let state=item.status==='accepted'?'FRIEND':item.status==='pending'?(item.outgoing?'INVITE SENT':'NEW INVITE'):'DECLINED';
       const a=[];
       if(item.status==='pending'&&!item.outgoing){
         a.push(action('ACCEPT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:true});if(r.ok)await refreshState();}));
-        a.push(action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok)await refreshState();},'danger'));
+        a.push(action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok&&r.data){note('Friend request declined.');await refreshState();}else if(r.ok){note('This request is no longer pending. Refresh your friends.');await refreshState();}},'danger'));
       }
       if(item.status==='accepted')a.push(action('CHALLENGE ⚔',()=>challengeFriend(item.peer_id,item.nickname||'PLAYER')));
       if(item.status==='accepted')a.push(action('MESSAGE',()=>openChat(item.peer_id,item.nickname||'PLAYER')));

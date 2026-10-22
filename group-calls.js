@@ -61,7 +61,7 @@
   function addAvatar(holder,id,name,path){holder.textContent=(name||'V').trim().slice(0,1).toUpperCase();holder.classList.add('vxsk-participant-avatar');if(id){if(path)void window.VXSKCommunity?.addVisibleAvatar?.(holder,id,path);else void window.VXSKCommunity?.addFriendAvatar?.(holder,id);}}
   function groupTile(id,name,isMe=false,avatarPath=null){
     const card=node('article',null,'vxsk-group-peer is-audio');card.dataset.user=id;
-    const vid=node('video');vid.autoplay=true;vid.playsInline=true;vid.muted=true;
+    const vid=node('video');vid.autoplay=true;vid.playsInline=true;vid.muted=true;vid.setAttribute('aria-label',isMe?'Your camera preview':'Participant camera');
     const placeholder=node('div',null,'vxsk-member-placeholder');addAvatar(placeholder,isMe?null:id,name,avatarPath);
     const label=node('strong',(isMe?'YOU · ':'')+(name||'VXSK PLAYER'));
     const state=node('small',isMe?'LOCAL':'CONNECTING…');

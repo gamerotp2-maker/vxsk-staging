@@ -11,10 +11,10 @@
   const muteButton = $('vxsk-call-mute'), cameraButton = $('vxsk-call-camera'), muteFriendButton=$('vxsk-call-mute-user');
   const hangupButton = $('vxsk-call-hangup'), closeButton = $('vxsk-call-close');
   const mediaBox = $('vxsk-call-video'), remoteVideo = $('vxsk-remote-video');
-  const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio');
+  const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio'), localMicStatus=$('vxsk-call-local-mic-state');
   const playMediaButton=$('vxsk-call-play-media');
   const remoteShareAudio=$('vxsk-share-audio'), fullStage=$('vxsk-call-stage'), fullscreenButton=$('vxsk-call-fullscreen');
-  const privateShares=$('vxsk-private-shares'),cameraPlaceholder=$('vxsk-call-camera-placeholder'),videoPeerAvatar=$('vxsk-video-peer-avatar'),videoPeerName=$('vxsk-video-peer-name');
+  const selfPreview=$('vxsk-self-preview'),privateShares=$('vxsk-private-shares'),cameraPlaceholder=$('vxsk-call-camera-placeholder'),videoPeerAvatar=$('vxsk-video-peer-avatar'),videoPeerName=$('vxsk-video-peer-name');
   const networkButton=$('vxsk-call-network'), networkInfo=$('vxsk-call-network-info');
   const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label'),shareExit=$('vxsk-share-exit');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
@@ -196,8 +196,26 @@
     if(localVideo)localVideo.srcObject=localMedia?.getVideoTracks().length?new MediaStream(localMedia.getVideoTracks()):null;
     updateScreenUi();
   }
+  function updateLocalMicStatus(){
+    if(!localMicStatus)return;
+    const tracks=localMedia?.getAudioTracks()||[];
+    localMicStatus.hidden=!(call?.state==='accepted'&&tracks.length&&tracks.every(t=>!t.enabled||t.readyState!=='live'));
+  }
+  function updateSelfPreview(){
+    const active=Boolean(call?.state==='accepted'&&localMedia?.getVideoTracks().some(t=>t.enabled&&t.readyState==='live'));
+    if(selfPreview)selfPreview.hidden=!active;
+    if(!localVideo)return;
+    const track=localMedia?.getVideoTracks().find(t=>t.enabled&&t.readyState==='live')||null;
+    const stream=localVideo.srcObject;
+    if(track){
+      if(!stream||stream.getVideoTracks()[0]!==track)localVideo.srcObject=new MediaStream([track]);
+      void localVideo.play().catch(()=>{});
+    }else if(stream){localVideo.srcObject=null;}
+  }
   function updateScreenUi(){
-    if(!call)return;
+    if(!call){if(selfPreview)selfPreview.hidden=true;if(localMicStatus)localMicStatus.hidden=true;return;}
+    updateSelfPreview();
+    updateLocalMicStatus();
     if(screenButton){screenButton.hidden=call.state!=='accepted'||!peerConnection;screenButton.textContent=sharing?'STOP SHARING':'SHARE SCREEN';}
     if(shareLabel){shareLabel.hidden=!sharing&&!friendScreen;shareLabel.textContent=sharing?(sharingAudio?'YOU ARE SHARING + SOUND':'YOU ARE SHARING SCREEN'):(friendSharingAudio?'FRIEND IS SHARING + SOUND':'FRIEND IS SHARING SCREEN');}
     mediaBox.hidden=call.medium!=='video'&&!(peerCameraTrack&&!peerCameraTrack.muted&&!peerCameraOff)&&!localMedia?.getVideoTracks().some(t=>t.readyState==='live'&&t.enabled);
@@ -401,7 +419,7 @@
     try{peerConnection?.close();}catch(_){} peerConnection=null;
     localMedia?.getTracks().forEach(track=>track.stop());localMedia=null;
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
-    localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;remoteAudio.muted=false;muteFriendButton.textContent='MUTE FRIEND';
+    localVideo.srcObject=null;if(selfPreview)selfPreview.hidden=true;if(localMicStatus)localMicStatus.hidden=true;remoteVideo.srcObject=null;remoteAudio.srcObject=null;remoteAudio.muted=false;muteFriendButton.textContent='MUTE FRIEND';
     if(cameraPlaceholder)cameraPlaceholder.hidden=true;
     if(remoteShareAudio)remoteShareAudio.srcObject=null;
     pendingIce=[];signaling=Promise.resolve();lastSignal=0;collectingMedia=false;
@@ -846,6 +864,7 @@
     tracks.forEach(track=>{track.enabled=!muted;});
     muteButton.textContent=muted?'UNMUTE MICROPHONE':'MUTE MICROPHONE';
     if(muted)myAvatar?.closest('.vxsk-voice-user')?.classList.remove('is-speaking');
+    updateLocalMicStatus();
   });
   function syncFullscreenButton(){
     if(!fullscreenButton)return;
