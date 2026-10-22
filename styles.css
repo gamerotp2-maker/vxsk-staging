@@ -1140,3 +1140,5 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 
 .vxsk-call-local-mic-status{display:inline-flex;margin:4px 0 10px;padding:7px 12px;border:1px solid #f77e9d;border-radius:24px;color:#fff;background:#7e2148db;font:900 11px/1.2 var(--body);letter-spacing:.05em}
 .vxsk-call-local-mic-status[hidden]{display:none!important}
+
+#account-owner-roles[hidden]{display:none!important}

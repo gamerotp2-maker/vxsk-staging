@@ -28,7 +28,7 @@
   <script src="arena-v8.js?v=12.8.7" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
   <script src="supabase-config.js?v=12.8.7" defer></script>
-  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.12-security-fix" defer></script><script src="updates.js" defer></script>
+  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.29" defer></script><script src="updates.js" defer></script>
   <script src="match-center-live.js?v=12.8.22" defer></script>
   <script src="vxsk-experience.js?v=12.8.15-friends-nav" defer></script>
   <script src="season-showcase.js?v=12.8.9" defer></script>
@@ -47,7 +47,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.28</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.29</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -378,7 +378,7 @@
         <div class="account-option"><h3>SECURITY <span id="mfa-badge" class="security-state">2FA OFF</span></h3><p>Protect your VXSK account with a 6-digit code from an authenticator app on your phone.</p><div class="profile-buttons"><button id="mfa-check" type="button" class="btn btn-ghost">CHECK 2FA STATUS</button><button id="mfa-start" type="button" class="btn btn-ghost">ENABLE 2-STEP VERIFICATION</button><button id="mfa-remove" type="button" class="btn btn-ghost" hidden>DISABLE 2FA</button><button id="mfa-reset-pending" type="button" class="btn btn-ghost" hidden>RESET UNFINISHED SETUP</button></div><p id="mfa-status-detail" class="auth-help" role="status" aria-live="polite">Your 2FA status will be checked with Supabase.</p></div>
         </div>
         <p class="auth-help">An account is separate from showmatch registration.</p>
-        <div class="profile-buttons"><a id="account-staff-link" href="staff.html" class="btn btn-ghost" hidden>STAFF COMMAND ↗</a><button type="button" id="account-register" class="btn btn-main">BROWSE REGISTRATION ↗</button><button type="button" id="account-logout" class="btn btn-ghost">SIGN OUT</button></div>
+        <div class="profile-buttons"><a id="account-staff-link" href="staff.html" class="btn btn-ghost" hidden>STAFF COMMAND ↗</a><a id="account-owner-roles" href="staff.html#team" class="btn btn-ghost" hidden>👑 MANAGE STAFF ROLES ↗</a><button type="button" id="account-register" class="btn btn-main">BROWSE REGISTRATION ↗</button><button type="button" id="account-logout" class="btn btn-ghost">SIGN OUT</button></div>
       </div>
       <div id="auth-panel-mfa-login" class="auth-panel" data-auth-panel="mfa-login" hidden>
         <p class="auth-help">2-STEP VERIFICATION IS ENABLED. Enter the 6-digit code from your authenticator app to finish signing in.</p>

@@ -1,4 +1,4 @@
-/* VXSK V12.8.21 | Single-page staff workspace. Changes layout only; rights stay server-side. */
+/* VXSK V12.8.29 | Single-page staff workspace. Changes layout only; rights stay server-side. */
 .staff-command-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:25px 0 10px}
 .staff-command-nav button{text-align:center;border-radius:11px;border:1px solid #555074;background:#131930;min-height:58px;font-size:11px;padding:12px;letter-spacing:.025em}
 .staff-command-nav button:hover,.staff-command-nav button:focus-visible{border-color:#c5a3ff}
@@ -47,3 +47,42 @@
 .vxsk-workflow span{display:inline-block;padding:8px 11px;border-radius:8px;background:#1d2244;border:1px solid #655891;color:#e9e0ff;font-size:11px;font-weight:800}
 #staff-challenges-refresh{margin:8px 0 12px;cursor:pointer;border:1px solid #8971bb;border-radius:8px;background:#25234d;padding:8px 13px;color:white;font-weight:800}
 #staff-challenges-list{display:grid;gap:9px}
+
+/* VXSK V12.8.29 | Owner-only Team & Roles. Security enforced by Supabase RPC. */
+.staff-command-nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+.owner-staff-manager{border-color:#6856a4}
+.owner-team-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:13px}
+.owner-team-heading h3,.owner-team-heading h4{margin:0}
+.owner-team-heading>button{border-radius:8px;white-space:nowrap}
+.owner-team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.owner-team-search-form{display:grid;gap:8px;margin:16px 0 6px}
+.owner-team-search-form>label{font-size:11px;font-weight:800;color:#d8c9f6}
+.owner-team-search-row{display:flex;gap:7px;align-items:stretch}
+.owner-team-search-row input{flex:1 1 auto;min-width:0;border-radius:8px}
+.owner-team-search-row button{border-radius:8px;flex:0 0 auto}
+.owner-team-results{display:grid;gap:9px;max-height:490px;overflow-y:auto;padding:5px 3px}
+.owner-team-member{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:13px;background:#0d1630;border:1px solid #43496b;border-radius:10px;min-width:0}
+.owner-team-member-owner{border-color:#9076cb;background:#211838}
+.owner-team-name{min-width:0;flex:1 1 130px}
+.owner-team-name strong{font-size:15px;display:block;overflow-wrap:anywhere}
+.owner-team-name small{color:#bec7df;display:block;margin-top:3px;font-size:11px}
+.owner-team-apply{display:flex;align-items:center;gap:8px;flex:1 1 200px;justify-content:flex-end}
+.owner-team-apply select{width:auto;min-width:154px;max-width:220px;flex:1;padding:9px;border-radius:8px;font-size:12px}
+.owner-team-apply button{padding:11px 13px;border-radius:8px;white-space:nowrap}
+.owner-team-count{font-size:12px;border:1px solid #7260b8;border-radius:8px;padding:6px 10px;color:#e0d0ff}
+.owner-team-audit{border-top:1px solid #4d456a;margin-top:19px;padding-top:18px}
+.owner-team-audit h4{font:900 19px 'Barlow Condensed',sans-serif;color:#dfcdff;margin:0 0 8px}
+.owner-team-history{display:grid;gap:7px;max-height:220px;overflow-y:auto}
+.owner-team-history>p{font-size:12px;color:#bec4db;margin:4px 0}
+.owner-team-history-entry{font-size:12px;padding:11px;background:#10172f;border:1px solid #3d4365;border-radius:9px;overflow-wrap:anywhere}
+.owner-team-history-entry small{color:#afb9d2;display:block;margin-top:3px}
+@media(max-width:1100px){.staff-command-nav{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.owner-team-grid{grid-template-columns:1fr}}
+@media(max-width:570px){.staff-command-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-team-search-row{flex-direction:column}.owner-team-apply{flex:1 1 100%;justify-content:stretch}.owner-team-apply select{max-width:none}}
+@media(max-width:390px){.staff-command-nav{grid-template-columns:1fr}}
+
+/* Keep long permission names legible at desktop and mobile sizes. */
+.owner-team-member .owner-team-name{flex:1 1 100%}
+.owner-team-member .owner-team-apply{flex:1 1 100%;justify-content:stretch}
+.owner-team-member .owner-team-apply select{flex:1 1 auto;max-width:none;min-width:0}
+@media(max-width:375px){.owner-team-member .owner-team-apply{flex-direction:column;align-items:stretch}.owner-team-member .owner-team-apply select{width:100%}}

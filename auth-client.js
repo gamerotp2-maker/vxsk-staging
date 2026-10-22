@@ -533,7 +533,9 @@
     $('#account-email').textContent = currentUser?.email || '';
     verifiedFactor = null;
     const staffLink = $('#account-staff-link');
+    const ownerRolesLink = $('#account-owner-roles');
     if (staffLink) staffLink.hidden = true;
+    if (ownerRolesLink) ownerRolesLink.hidden = true;
     if(navStaff)navStaff.hidden=true;
     if(navChip)navChip.hidden=true;
     if (!currentUser) {
@@ -549,6 +551,7 @@
       const roleResult = await api.from('staff_roles').select('role').eq('user_id', currentUser.id).maybeSingle();
       const roleAllowed=!roleResult.error && ['owner','reviewer','staff'].includes(roleResult.data?.role);
       staffLink.hidden=!roleAllowed;
+      if(ownerRolesLink)ownerRolesLink.hidden=roleResult.data?.role!=='owner';
       if(navStaff)navStaff.hidden=!roleAllowed;
     }
     if (mfaRequired) {
@@ -841,7 +844,7 @@
   $('#switch-go-signin')?.addEventListener('click',()=>{view('signin');$('#signin-email').focus();});
   async function signout() {
     if(!configured())return;
-    try {assert(await api.auth.signOut());$('#account-staff-link').hidden=true;currentUser=null;recovering=false;mfaRequired=false;clearMyApplications();view('signin');notify('Signed out of VXSK.','success');resetNav();}
+    try {assert(await api.auth.signOut());$('#account-staff-link').hidden=true;if($('#account-owner-roles'))$('#account-owner-roles').hidden=true;currentUser=null;recovering=false;mfaRequired=false;clearMyApplications();view('signin');notify('Signed out of VXSK.','success');resetNav();}
     catch(_){notify('Could not sign out. Try again.','error');}
   }
   $('#account-logout').addEventListener('click',signout);

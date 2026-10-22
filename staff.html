@@ -10,7 +10,7 @@
 <link href="staff.css?v=12.8.10" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1"></script>
 <script defer="" src="supabase-config.js?v=12.8.4"></script><script defer="" src="staging-guard.js"></script><script defer="" src="staff.js?v=12.8.4"></script><script defer="" src="opponent-staff.js?v=12.8.10"></script><script defer="" src="content-editor.js?v=12.8.22"></script>
-<link href="staff-command.css?v=12.8.22" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.22"></script><script defer="" src="staff-arena.js?v=12.8.22"></script><script defer="" src="staff-showmatches.js?v=12.8.22"></script></head>
+<link href="staff-command.css?v=12.8.29" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.29"></script><script defer="" src="staff-arena.js?v=12.8.22"></script><script defer="" src="staff-showmatches.js?v=12.8.22"></script><script defer src="owner-staff-manager.js?v=12.8.29"></script></head>
 <body>
 <a class="skip-link" href="#workspace">Skip to workspace</a>
 <header class="bar"><a class="brand" href="./"><img alt="VXSK" height="48" src="assets/vxsk-logo.png" width="52"/></a><div><span class="eyebrow">VXSK // AUTHORIZED PERSONNEL</span><h1>STAFF <em>COMMAND.</em></h1></div><a class="back" href="./">← BACK TO ARENA</a></header>
@@ -22,6 +22,7 @@
 <button aria-pressed="false" data-staff-tab="opponents" id="staff-inbox-opponents" type="button">🎯 NO OPPONENT <span id="opponents-inbox-count">—</span></button>
 <button aria-pressed="false" data-staff-tab="bulletin" type="button">⚔ MANAGE SHOWMATCHES</button>
 <button aria-pressed="false" data-staff-tab="tournaments" type="button">🏆 MANAGE TOURNAMENTS</button>
+<button aria-pressed="false" data-staff-tab="team" id="staff-owner-team-tab" type="button" hidden>👑 TEAM &amp; ROLES</button>
 </nav><p class="staff-command-explainer">Everything the VXSK staff manage lives here. The Arena Hub is for players and viewers.</p>
 <section data-staff-view="applications" id="staff-view-applications"><section aria-label="Application statistics" class="stats"><div class="stat"><span>PENDING</span><strong id="count-pending">—</strong></div><div class="stat"><span>APPROVED</span><strong id="count-approved">—</strong></div><div class="stat"><span>REJECTED</span><strong id="count-rejected">—</strong></div><div class="stat"><span>ALL VISIBLE</span><strong id="count-total">—</strong></div></section><div id="regular-inbox"><div class="toolbar"><div><label for="filter-status">STATUS</label><select id="filter-status"><option value="all">All applications</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div><div><label for="filter-search">SEARCH PLAYERS</label><input id="filter-search" maxlength="80" placeholder="Username / game / mode" type="search"/></div><button id="refresh" type="button">↻ REFRESH</button></div>
 <p aria-live="polite" class="notice" id="notice" role="status"></p>
@@ -99,6 +100,23 @@
 </form></div></div>
 </section>
 <div class="staff-arena-card" hidden="" id="staff-arena-noaccess">This account doesn't have tournament editor/referee permissions. Ask the event Owner to confirm your existing staff role; no new database permissions are assigned here.</div>
+</section>
+
+<section data-staff-view="team" id="staff-view-team" hidden aria-labelledby="staff-team-title">
+<div class="command-section-title"><div><span class="eyebrow">OWNER ONLY / PROTECTED BY 2FA</span><h2 id="staff-team-title">TEAM &amp; <em>ROLES.</em></h2><p>Manage VXSK team access from this page. Search by VXSK nickname, grant Reviewer access or remove it. Changes are verified by Supabase — hidden buttons alone never grant permission.</p></div></div>
+<div class="staff-arena-block owner-staff-manager">
+<div class="owner-team-heading"><div><h3>STAFF MANAGEMENT</h3><p class="small-muted">Only verified, registered VXSK accounts can be assigned. Reviewers can approve/reject registrations, but cannot grant roles or use Owner controls. Never share your 2FA code.</p></div><button id="owner-team-refresh" type="button">↻ REFRESH TEAM</button></div>
+<p id="owner-team-feedback" role="status" aria-live="polite" class="notice"></p>
+<div class="owner-team-grid">
+<section class="staff-arena-card" aria-label="Find player by nickname"><h4>01 / FIND ACCOUNT</h4>
+<form id="owner-team-search-form" class="owner-team-search-form"><label for="owner-team-search">VXSK NICKNAME</label><div class="owner-team-search-row"><input id="owner-team-search" type="search" minlength="2" maxlength="40" autocomplete="off" placeholder="Search nickname, e.g. DraGoN" required><button id="owner-team-search-btn" type="submit">SEARCH ↗</button></div></form>
+<p class="small-muted">Select the correct VXSK account before granting access. Search results never show private emails.</p>
+<div id="owner-team-search-results" class="owner-team-results" aria-live="polite"><p class="small-muted">Enter at least 2 characters to find an account.</p></div>
+</section>
+<section class="staff-arena-card" aria-label="Current staff"><div class="owner-team-heading"><h4>02 / CURRENT TEAM</h4><span id="owner-team-count" class="owner-team-count">—</span></div><div id="owner-team-members" class="owner-team-results" aria-live="polite"><p class="small-muted">Select this tab to load team roles.</p></div></section>
+</div>
+<div class="owner-team-audit"><h4>RECENT CHANGES</h4><p class="small-muted">Only the Owner can inspect changes. All changes made through this manager are recorded.</p><div id="owner-team-history" class="owner-team-history"></div></div>
+</div>
 </section>
 
 <p class="footer-note">Private staff workspace. Do not copy player contacts into public chats. Netlify Forms submissions need a separate verified sync before they appear here.</p>

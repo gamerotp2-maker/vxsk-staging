@@ -1,4 +1,4 @@
-/* VXSK V12.8.21 — one staff command dashboard, four focused views.
+/* VXSK V12.8.29 — one staff command dashboard, four focused views.
    These are navigation controls, never a substitute for Supabase authorization. */
 'use strict';
 (() => {
@@ -8,7 +8,8 @@
   const valid=new Set(views.map(node=>node.dataset.staffView));
   function open(name){
     if(!valid.has(name))name='applications';
-    if(document.querySelector('[data-staff-tab="'+name+'"]')?.hidden)name='applications';
+    const targetTab=document.querySelector('[data-staff-tab="'+name+'"]');
+    if(!targetTab||targetTab.hidden)name='applications';
     for(const button of tabs){
       const active=button.dataset.staffTab===name;
       button.classList.toggle('is-active',active);
@@ -21,12 +22,15 @@
       window.dispatchEvent(new Event('vxsk:opponent-inbox-open'));
     }
     if(name==='tournaments')window.dispatchEvent(new Event('vxsk:staff-tournaments-open'));
+    if(name==='team')window.dispatchEvent(new Event('vxsk:owner-team-open'));
     if(name==='bulletin')window.dispatchEvent(new Event('vxsk:staff-showmatches-open'));
     // Back/refresh should not silently open a hidden area.
     try{history.replaceState(null,'','#'+name);}catch(_){/* file preview */}
   }
   for(const button of tabs)button.addEventListener('click',()=>open(button.dataset.staffTab));
   window.addEventListener('vxsk:staff-ready',async({detail})=>{
+    const ownerTab=document.getElementById('staff-owner-team-tab');
+    if(ownerTab)ownerTab.hidden=detail?.role!=='owner';
     if(!['owner','reviewer'].includes(detail?.role)){
       const opp=document.querySelector('[data-staff-tab="opponents"]');
       if(opp)opp.hidden=true;
