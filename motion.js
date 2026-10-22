@@ -33,7 +33,7 @@ if (film) {
   const src = film.dataset.cinematicSrc;
   let activated = false;
   let onscreen = true;
-  const canPlay = () => !media.matches && !saveData && !document.hidden && onscreen;
+  const canPlay = () => !media.matches && !saveData && !document.hidden && onscreen && !document.body.classList.contains('vxsk-low-lag');
   const syncVideo = () => {
     if (!canPlay()) { film.pause(); return; }
     if (!activated) { film.src = src; activated = true; }
@@ -48,6 +48,7 @@ if (film) {
     videoObserver.observe(film);
   } else syncVideo();
   document.addEventListener('visibilitychange', syncVideo);
+  document.addEventListener('vxsk:performance-mode', syncVideo);
   media.addEventListener?.('change', syncVideo);
   film.addEventListener('error', () => { film.pause(); film.removeAttribute('src'); film.load(); });
 }

@@ -962,3 +962,10 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 #vxsk-call-fullscreen{border-color:#9e84e8;background:linear-gradient(110deg,#40348b,#235b7f)}
 #vxsk-call-fullscreen[hidden]{display:none}
 @media(max-width:680px){.vxsk-call-stage:fullscreen{padding:12px}.vxsk-call-stage:fullscreen .vxsk-call-video:not([hidden]){min-height:30vh;max-height:65dvh}}
+/* V12.8.18 free performance mode. Never targets the WebRTC call UI. */
+#vxsk-low-lag-toggle{border:1px solid #52477c;border-radius:8px;background:#171b35;color:#ded6fd;white-space:nowrap;font-size:10px;font-weight:900;letter-spacing:.035em;padding:7px 9px}
+#vxsk-low-lag-toggle[aria-pressed="true"]{border-color:#9af4c7;color:#aaf4d0;background:#1a352f}
+body.vxsk-low-lag .site-noise,body.vxsk-low-lag .particles,body.vxsk-low-lag .ambient-wash{display:none!important}
+body.vxsk-low-lag :not(.vxsk-call-panel):not(.vxsk-call-panel *){animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+body.vxsk-low-lag .nav-hover-panel{backdrop-filter:none}
+.vxsk-dm-reactions{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}.vxsk-dm-reactions small{font-size:10px;color:#bcaee1}.vxsk-dm-reactions button{padding:4px 6px;border-radius:7px;font-size:12px;min-width:28px}

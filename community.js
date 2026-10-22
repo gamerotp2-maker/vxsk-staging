@@ -206,10 +206,37 @@
     const requestedPeer=peer;
     const r=await rpc('vxsk_social_dm_history',{p_peer:peer});if(!r.ok||peer!==requestedPeer)return;
     messages.replaceChildren();
-    for(const entry of (r.data||[]).slice().reverse()){
+    // One batched reaction read for this visible DM history; RLS restricts it to
+    // message participants. If the optional Arena migration is not yet installed,
+    // existing chat continues normally with no broken buttons.
+    const history=(r.data||[]).slice().reverse();
+    let reactionEnabled=false;
+    const reactions=new Map();
+    const ids=history.map(entry=>entry.message_id).filter(Boolean).slice(0,75);
+    if(ids.length){
+      const response=await client.from('vxsk_hub_reactions').select('message_id,emoji').in('message_id',ids).limit(150);
+      if(!response.error){reactionEnabled=true;for(const x of response.data||[]){
+        const curr=reactions.get(x.message_id)||[];curr.push(x.emoji);reactions.set(x.message_id,curr);
+      }}
+    }
+    for(const entry of history){
       const line=el('div',undefined,'community-message '+(entry.from_me?'from-me':'from-friend'));
       line.append(el('span',entry.body));
       const time=el('small',new Date(entry.sent_at).toLocaleString());line.append(time);
+      if(reactionEnabled && entry.message_id){
+        const tray=el('span',undefined,'vxsk-dm-reactions');
+        const chosen=reactions.get(entry.message_id)||[];
+        const summary=el('small',chosen.length?'REACTIONS '+chosen.join(' '):'REACT');tray.append(summary);
+        for(const emoji of ['👍','💜','🔥','😂','👏']){
+          const button=action(emoji,async()=>{
+            const outcome=await rpc('vxsk_hub_react',{p_message:entry.message_id,p_emoji:emoji});
+            if(outcome.ok && outcome.data)await refreshChat();
+          },'vxsk-dm-react');
+          button.title='React with '+emoji;
+          tray.append(button);
+        }
+        line.append(tray);
+      }
       if(!entry.from_me){line.append(action('REPORT',async()=>{
         const reason=prompt('Why are you reporting this message? (4–200 characters)');
         if(reason===null)return;
