@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.16: free ICE restart answer fix and privacy-safe call diagnostics.
+// VXSK STAGING V12.8.17: fullscreen call stage and consented screen/tab audio sharing.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -13,6 +13,7 @@
   const mediaBox = $('vxsk-call-video'), remoteVideo = $('vxsk-remote-video');
   const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio');
   const playMediaButton=$('vxsk-call-play-media');
+  const remoteShareAudio=$('vxsk-share-audio'), fullStage=$('vxsk-call-stage'), fullscreenButton=$('vxsk-call-fullscreen');
   const networkButton=$('vxsk-call-network'), networkInfo=$('vxsk-call-network-info');
   const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
@@ -35,7 +36,7 @@
   const freeStunOnly=true;
   const freeStunServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
   let iceServers=freeStunServers,hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
-  let videoSender=null,shareStream=null,shareTrack=null,sharing=false,friendScreen=false;
+  let videoSender=null,screenAudioSender=null,shareStream=null,shareTrack=null,shareAudioTrack=null,sharing=false,sharingAudio=false,friendScreen=false,friendSharingAudio=false;
   let callStartedAt=0;
   let meterCtx=null,meterRaf=0,localAnalyser=null,remoteAnalyser=null;
   let voiceLast=0;
@@ -56,6 +57,7 @@
   }
   function minimize(){
     if(!call)return;
+    if(document.fullscreenElement===fullStage)void document.exitFullscreen().catch(()=>{});
     minimized=true;
     if(panel.open)panel.close();
     panel.hidden=true;
@@ -150,11 +152,14 @@
     },state==='failed'?1000:8000);
   }
   function stopScreenShare(){
-    const old=shareTrack;shareTrack=null;sharing=false;
-    // Restore camera (if present) or return to audio-only without renegotiation.
+    const old=shareTrack, oldAudio=shareAudioTrack;
+    shareTrack=null;shareAudioTrack=null;sharing=false;sharingAudio=false;
+    // Stop *only* screen media. Keep the microphone and its independent mute state.
     const camera=localMedia?.getVideoTracks()?.[0]||null;
     if(videoSender&&peerConnection?.signalingState!=='closed')void videoSender.replaceTrack(camera).catch(()=>{});
+    if(screenAudioSender&&peerConnection?.signalingState!=='closed')void screenAudioSender.replaceTrack(null).catch(()=>{});
     if(old)old.onended=null;
+    if(oldAudio)oldAudio.onended=null;
     shareStream?.getTracks()?.forEach(t=>t.stop());shareStream=null;
     if(localVideo)localVideo.srcObject=localMedia;
     updateScreenUi();
@@ -162,26 +167,60 @@
   function updateScreenUi(){
     if(!call)return;
     if(screenButton){screenButton.hidden=call.state!=='accepted'||!peerConnection;screenButton.textContent=sharing?'STOP SHARING':'SHARE SCREEN';}
-    if(shareLabel){shareLabel.hidden=!sharing&&!friendScreen;shareLabel.textContent=sharing?'YOU ARE SHARING':'FRIEND IS SHARING';}
+    if(shareLabel){shareLabel.hidden=!sharing&&!friendScreen;shareLabel.textContent=sharing?(sharingAudio?'YOU ARE SHARING + SOUND':'YOU ARE SHARING SCREEN'):(friendSharingAudio?'FRIEND IS SHARING + SOUND':'FRIEND IS SHARING SCREEN');}
     mediaBox.hidden=(!localMedia||call.medium!=='video')&&!sharing&&!friendScreen;
   }
   async function startScreenShare(){
     if(!call||call.state!=='accepted'||!peerConnection||!videoSender)return;
     if(sharing){stopScreenShare();return;}
     if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing is not supported by this browser.');return;}
-    // This runs directly from the button click: browser picker requires a gesture.
+    // This call must occur synchronously after the click; the picker requires a gesture.
+    let captured=null, changedVideo=false;
+    const startingCallId=call.id, startingPc=peerConnection;
     try{
-      const captured=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:30}},audio:false});
+      captured=await navigator.mediaDevices.getDisplayMedia({
+        video:{frameRate:{ideal:15,max:30}},
+        audio:true,
+        systemAudio:'include',
+        surfaceSwitching:'include'
+      });
       const track=captured.getVideoTracks()[0];
-      if(!track||!call||!peerConnection){captured.getTracks().forEach(t=>t.stop());return;}
-      await videoSender.replaceTrack(track);
-      shareStream=captured;shareTrack=track;sharing=true;
+      let audioTrack=captured.getAudioTracks()[0]||null;
+      if(!track||!call||call.id!==startingCallId||peerConnection!==startingPc){captured.getTracks().forEach(t=>t.stop());return;}
+      await videoSender.replaceTrack(track);changedVideo=true;
+      // An extra audio transceiver is negotiated during call setup. Audio sharing
+      // is independent of the microphone: mute only controls the mic track.
+      if(audioTrack){
+        try{
+          if(!screenAudioSender)throw Error('No negotiated screen audio sender.');
+          await screenAudioSender.replaceTrack(audioTrack);
+        }catch(_){
+          // Keep screen video usable in browsers that cannot send tab audio.
+          audioTrack.stop();audioTrack=null;
+        }
+      }
+      shareStream=captured;shareTrack=track;shareAudioTrack=audioTrack;
+      sharing=true;sharingAudio=!!audioTrack;
       track.onended=()=>{if(shareTrack===track)stopScreenShare();};
+      if(audioTrack)audioTrack.onended=()=>{
+        if(shareAudioTrack===audioTrack){
+          shareAudioTrack=null;sharingAudio=false;
+          if(screenAudioSender&&peerConnection?.signalingState!=='closed')void screenAudioSender.replaceTrack(null).catch(()=>{});
+          updateScreenUi();setStatus('Screen share continues without sound.');
+        }
+      };
       localVideo.srcObject=new MediaStream([track]);
       void localVideo.play().catch(()=>{});
-      updateScreenUi();setStatus('Sharing your screen with your friend. Use STOP SHARING to stop.');
+      updateScreenUi();
+      setStatus(audioTrack?
+        'Sharing your screen and its audio. Your microphone stays independent.':
+        'Sharing screen WITHOUT audio: if your browser offers it, select a tab and check Share tab audio, then try again.');
     }catch(e){
-      if(e?.name!=='NotAllowedError')setStatus('Screen sharing unavailable. Check browser permission and retry.');
+      if(changedVideo&&videoSender&&peerConnection===startingPc){
+        void videoSender.replaceTrack(localMedia?.getVideoTracks()?.[0]||null).catch(()=>{});
+      }
+      if(captured)captured.getTracks().forEach(t=>t.stop());
+      if(e?.name!=='NotAllowedError')setStatus('Screen sharing could not start'+(e?.name?' ('+e.name+')':'')+'. Try sharing a browser tab.');
     }
   }
   function avatarFallback(node,name){
@@ -262,6 +301,7 @@
     updateScreenUi();
     if(voices)voices.hidden=call.medium!=='audio'||call.state!=='accepted';
     if(playMediaButton)playMediaButton.hidden=call.state!=='accepted'||!playNeedsGesture;
+    if(fullscreenButton)fullscreenButton.hidden=call.state!=='accepted';
     if(networkButton)networkButton.hidden=call.state!=='accepted';
     updateRingtone();mini();
   }
@@ -269,15 +309,18 @@
     clearMeters();
     stopTones();
     if(iceRetryTimer)clearTimeout(iceRetryTimer);iceRetryTimer=null;iceRetry=0;iceRestarting=false;
-    stopScreenShare();videoSender=null;friendScreen=false;
+    if(document.fullscreenElement===fullStage)void document.exitFullscreen().catch(()=>{});
+    stopScreenShare();videoSender=null;screenAudioSender=null;friendScreen=false;friendSharingAudio=false;
     try{peerConnection?.close();}catch(_){} peerConnection=null;
     localMedia?.getTracks().forEach(track=>track.stop());localMedia=null;
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
     localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;
+    if(remoteShareAudio)remoteShareAudio.srcObject=null;
     pendingIce=[];signaling=Promise.resolve();lastSignal=0;collectingMedia=false;
     videoDescriptionQueued=false;videoIceBuffer=[];playNeedsGesture=false;iceReady=false;hasTurn=false;iceServers=freeStunServers;
     if(playMediaButton)playMediaButton.hidden=true;
     if(networkButton)networkButton.hidden=true;
+    if(fullscreenButton){fullscreenButton.hidden=true;fullscreenButton.textContent='FULLSCREEN ⛶';fullscreenButton.setAttribute('aria-pressed','false');}
     if(networkInfo){networkInfo.hidden=true;networkInfo.textContent='';}
   }
   function dismiss(message=''){
@@ -407,12 +450,38 @@
     const pc=new RTCPeerConnection({iceServers,bundlePolicy:'max-bundle'});
     peerConnection=pc;
     localMedia.getTracks().forEach(track=>{const sender=pc.addTrack(track,localMedia);if(track.kind==='video')videoSender=sender;});
-    // Reserve a video sender on AUDIO calls, enabling consented screen sharing
-    // later without changing existing audio codecs or renegotiating the call.
+    // Reserve video on audio-only calls and a *second* audio transceiver on all
+    // calls. Screen audio never replaces the microphone and requires no new SDP.
     if(!videoSender)videoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+    screenAudioSender=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
     updateScreenUi();
     pc.ontrack=event=>{
       if(!call||peerConnection!==pc)return;
+      // Second negotiated audio m-line carries optional shared-tab sound.
+      // Keep it off the microphone <audio> element so that both can play.
+      if(event.track.kind==='audio'){
+        const receivers=pc.getTransceivers?.().filter(t=>t.receiver?.track?.kind==='audio')||[];
+        const isSharedAudio=receivers.length>1&&receivers[1]?.receiver?.track===event.track;
+        if(isSharedAudio){
+          const sharedTrack=event.track;
+          const show=()=>{
+            if(peerConnection!==pc||!call)return;
+            friendSharingAudio=true;
+            if(remoteShareAudio){remoteShareAudio.srcObject=new MediaStream([sharedTrack]);void tryPlayMedia(remoteShareAudio);}
+            updateScreenUi();
+          };
+          const hide=()=>{
+            friendSharingAudio=false;
+            if(remoteShareAudio)remoteShareAudio.srcObject=null;
+            updateScreenUi();
+          };
+          sharedTrack.addEventListener('unmute',show);
+          sharedTrack.addEventListener('mute',hide);
+          sharedTrack.addEventListener('ended',hide);
+          if(!sharedTrack.muted)show();
+          return;
+        }
+      }
       if(!remoteMedia)remoteMedia=new MediaStream();
       if(!remoteMedia.getTracks().some(t=>t.id===event.track.id))remoteMedia.addTrack(event.track);
       if(call.medium==='audio'&&event.track.kind==='audio'){remoteAnalyser=meter(remoteMedia);initMeter();}
@@ -514,7 +583,8 @@
       localVideo:localMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
       remoteAudio:remoteMedia?.getAudioTracks().filter(t=>t.readyState==='live').length||0,
       remoteVideo:remoteMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
-      audioPlaying:!!remoteAudio?.srcObject&&!remoteAudio.paused
+      audioPlaying:!!remoteAudio?.srcObject&&!remoteAudio.paused,
+      sharedAudioPlaying:!!remoteShareAudio?.srcObject&&!remoteShareAudio.paused
     };
     // Report only candidate TYPES, never IP addresses, port numbers, or raw SDP.
     let path='unknown';
@@ -535,7 +605,8 @@
       'Path: '+path+' | TURN configured: '+(summary.relayConfigured?'yes':'no')+' | Retries: '+summary.retries,
       'Your tracks: audio '+summary.localAudio+', video '+summary.localVideo,
       'Friend tracks: audio '+summary.remoteAudio+', video '+summary.remoteVideo,
-      'Friend sound playback: '+(summary.audioPlaying?'playing':'not playing yet')
+      'Friend microphone playback: '+(summary.audioPlaying?'playing':'not playing yet'),
+      'Friend shared sound: '+(summary.sharedAudioPlaying?'playing':'not sharing or blocked')
     ];
     if(!hasTurn)lines.push('Free STUN-only mode: some networks cannot make direct calls without a relay.');
     networkInfo.textContent=lines.join('\n');networkInfo.hidden=false;
@@ -636,8 +707,12 @@
     if(!call)return;
     // An explicit click allows unmuted audio on browsers with autoplay protection.
     if(remoteAudio.srcObject)await tryPlayMedia(remoteAudio);
+    if(remoteShareAudio?.srcObject)await tryPlayMedia(remoteShareAudio);
     if(call.medium==='video'&&remoteVideo.srcObject)await tryPlayMedia(remoteVideo);
-    if(remoteAudio.srcObject&&!remoteAudio.paused){playNeedsGesture=false;playMediaButton.hidden=true;setStatus('Friend audio playing.');}
+    const audioElements=[remoteAudio,remoteShareAudio].filter(el=>el?.srcObject);
+    if(audioElements.length&&audioElements.every(el=>!el.paused)){
+      playNeedsGesture=false;playMediaButton.hidden=true;setStatus('Friend sound playback enabled.');
+    }
   });
   muteButton.addEventListener('click',()=>{
     const tracks=localMedia?.getAudioTracks()||[];
@@ -647,6 +722,22 @@
     muteButton.textContent=muted?'UNMUTE MICROPHONE':'MUTE MICROPHONE';
     if(muted)myAvatar?.closest('.vxsk-voice-user')?.classList.remove('is-speaking');
   });
+  function syncFullscreenButton(){
+    if(!fullscreenButton)return;
+    const active=document.fullscreenElement===fullStage;
+    fullscreenButton.textContent=active?'EXIT FULLSCREEN ↙':'FULLSCREEN ⛶';
+    fullscreenButton.setAttribute('aria-pressed',String(active));
+  }
+  fullscreenButton?.addEventListener('click',async()=>{
+    if(!call||call.state!=='accepted'||!fullStage)return;
+    try{
+      if(document.fullscreenElement===fullStage)await document.exitFullscreen();
+      else if(!document.fullscreenElement&&fullStage.requestFullscreen)await fullStage.requestFullscreen();
+      else setStatus('Exit the other fullscreen view before opening VXSK fullscreen.');
+    }catch(_){setStatus('Fullscreen is not available in this browser. Try a desktop browser.');}
+    syncFullscreenButton();
+  });
+  document.addEventListener('fullscreenchange',syncFullscreenButton);
   screenButton?.addEventListener('click',()=>{if(sharing)stopScreenShare();else void startScreenShare();});
   cameraButton.addEventListener('click',()=>{
     const tracks=localMedia?.getVideoTracks()||[];if(!tracks.length)return;

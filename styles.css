@@ -950,3 +950,15 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .vxsk-call-network-info{white-space:pre-line;border:1px solid #4e779d;background:#0a1931;color:#e1eaff;border-radius:12px;padding:12px 15px;line-height:1.7;font:600 12px/1.7 var(--body);overflow-wrap:anywhere;margin:8px 0 14px}
 .vxsk-call-network-info[hidden]{display:none}
 #vxsk-call-network{background:linear-gradient(110deg,#224463,#2c386c);border-color:#66a9cb}
+
+/* VXSK V12.8.17: call fullscreen and consented shared-tab sound. */
+.vxsk-call-stage{display:block}
+.vxsk-call-stage:fullscreen{display:flex;flex-direction:column;gap:12px;width:100vw;height:100dvh;box-sizing:border-box;overflow:auto;background:linear-gradient(145deg,#110c30,#080f26 70%,#160d31);padding:clamp(12px,2vw,32px);color:#f9f6ff;font-family:var(--body)}
+.vxsk-call-stage:fullscreen .vxsk-call-video:not([hidden]){display:block;flex:1 1 50vh;min-height:36vh;max-height:calc(100dvh - 220px);aspect-ratio:auto;margin:4px 0;border-radius:12px}
+.vxsk-call-stage:fullscreen #vxsk-remote-video{object-fit:contain}
+.vxsk-call-stage:fullscreen .vxsk-call-voices:not([hidden]){flex:1 1 auto;align-items:center;justify-content:center}
+.vxsk-call-stage:fullscreen .vxsk-call-actions{flex:0 0 auto;margin:4px 0}
+.vxsk-call-stage:fullscreen .auth-help{margin:0}
+#vxsk-call-fullscreen{border-color:#9e84e8;background:linear-gradient(110deg,#40348b,#235b7f)}
+#vxsk-call-fullscreen[hidden]{display:none}
+@media(max-width:680px){.vxsk-call-stage:fullscreen{padding:12px}.vxsk-call-stage:fullscreen .vxsk-call-video:not([hidden]){min-height:30vh;max-height:65dvh}}
