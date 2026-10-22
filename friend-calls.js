@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.13: Audio maintained; improved video ICE and media playback.
+// VXSK STAGING V12.8.14: ringtone, minimize-to-dock, voice-active avatars; WebRTC maintained.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -17,12 +17,139 @@
   let collectingMedia=false, updating=false, checkingInbox=false;
   let signaling=Promise.resolve(), pendingIce=[], myId=null;
   let videoDescriptionQueued=false, videoIceBuffer=[], playNeedsGesture=false;
+  const dock=$('vxsk-call-dock'), dockTitle=$('vxsk-call-dock-title'), dockStatus=$('vxsk-call-dock-status');
+  const ringToggle=$('vxsk-call-ringtone-toggle');
+  const myAvatar=$('vxsk-call-my-avatar'),peerAvatar=$('vxsk-call-peer-avatar');
+  const myName=$('vxsk-call-my-name'),peerName=$('vxsk-call-peer-name'),voices=$('vxsk-call-voices');
+  let minimized=false,ringCtx=null,ringTimer=null,ringEnabled=false,ringLastSound=0;
+  let meterCtx=null,meterRaf=0,localAnalyser=null,remoteAnalyser=null;
+  let voiceLast=0;
+
 
   function api(){return window.VXSKAuth?.client || null;}
-  function setStatus(message){status.textContent=message;}
+  function setStatus(message){status.textContent=message;if(dockStatus)dockStatus.textContent=message;}
   function display(){
+    if(minimized)return;
+    if(dock)dock.hidden=true;
     if(panel.hidden){panel.hidden=false;try{panel.showModal();}catch(_){panel.hidden=false;}}
   }
+  function mini(){
+    if(!dock)return;
+    dock.hidden=!call||!minimized;
+    if(call&&dockTitle)dockTitle.textContent=(call.state==='ringing'?'INCOMING / ':'LIVE / ')+call.name+' · '+call.medium.toUpperCase();
+    if(call&&dockStatus)dockStatus.textContent=status.textContent||'Call ongoing';
+  }
+  function minimize(){
+    if(!call)return;
+    minimized=true;
+    if(panel.open)panel.close();
+    panel.hidden=true;
+    mini();
+  }
+  function restore(){
+    if(!call)return;
+    minimized=false;mini();display();present();
+  }
+  function ringtoneUi(){
+    if(!ringToggle)return;
+    ringToggle.setAttribute('aria-pressed',String(ringEnabled));
+    ringToggle.setAttribute('aria-label',ringEnabled?'Mute call ringtone':'Enable call ringtone');
+    ringToggle.title=ringEnabled?'Mute incoming ringtone':'Enable incoming ringtone';
+    const label=ringToggle.querySelector('span');if(label)label.textContent=ringEnabled?'RING ON':'RING OFF';
+  }
+  // Browsers may block sound until the player interacts with the page. Enable
+  // ringtone by explicit click in the header; never ask for microphone access.
+  async function unlockRingtone(){
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)return false;
+    try{
+      if(!ringCtx)ringCtx=new AudioCtx();
+      if(ringCtx.state==='suspended')await ringCtx.resume();
+      return ringCtx.state==='running';
+    }catch(_){return false;}
+  }
+  function ringBeep(){
+    if(!ringEnabled||!call||call.role!=='callee'||call.state!=='ringing'||!ringCtx||ringCtx.state!=='running')return;
+    const now=ringCtx.currentTime;
+    for(let i=0;i<2;i++){
+      const osc=ringCtx.createOscillator();const gain=ringCtx.createGain();
+      osc.type='sine';osc.frequency.value=i?785:630;
+      gain.gain.setValueAtTime(0.0001,now+i*.25);
+      gain.gain.exponentialRampToValueAtTime(.055,now+i*.25+.025);
+      gain.gain.exponentialRampToValueAtTime(.0001,now+i*.25+.20);
+      osc.connect(gain).connect(ringCtx.destination);
+      osc.start(now+i*.25);osc.stop(now+i*.25+.22);
+    }
+    ringLastSound=Date.now();
+  }
+  function updateRingtone(){
+    const should=Boolean(ringEnabled&&call?.role==='callee'&&call.state==='ringing');
+    if(should){
+      if(!ringTimer){void unlockRingtone().then(ok=>{if(ok)ringBeep();});ringTimer=setInterval(ringBeep,1950);}
+    }else if(ringTimer){clearInterval(ringTimer);ringTimer=null;}
+  }
+  function avatarFallback(node,name){
+    if(!node)return;
+    node.replaceChildren();node.textContent=(name||'V').slice(0,1).toUpperCase();
+    node.setAttribute('aria-label',name||'Player');
+  }
+  function updateAvatars(){
+    if(!call)return;
+    const n=$('nav-nickname')?.textContent||'YOU';
+    if(myName)myName.textContent=n;
+    if(peerName)peerName.textContent=call.name;
+    avatarFallback(myAvatar,n);avatarFallback(peerAvatar,call.name);
+    const own=$('nav-avatar');
+    if(own&&!own.hidden&&own.src){
+      const img=document.createElement('img');img.src=own.src;img.alt='';img.decoding='async';
+      img.onerror=()=>img.remove();myAvatar.append(img);
+    }
+    // The community module exposes only avatars a player opted to share.
+    if(window.VXSKCommunity?.addFriendAvatar)void window.VXSKCommunity.addFriendAvatar(peerAvatar,call.peerId);
+  }
+  function clearMeters(){
+    if(meterRaf)cancelAnimationFrame(meterRaf);meterRaf=0;
+    localAnalyser=null;remoteAnalyser=null;voiceLast=0;
+    const a=myAvatar?.closest('.vxsk-voice-user'),b=peerAvatar?.closest('.vxsk-voice-user');
+    a?.classList.remove('is-speaking');b?.classList.remove('is-speaking');
+    if(meterCtx){void meterCtx.close().catch(()=>{});meterCtx=null;}
+  }
+  function meter(stream){
+    if(!stream?.getAudioTracks().length)return null;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return null;
+      if(!meterCtx)meterCtx=new AudioCtx();
+      if(meterCtx.state==='suspended')void meterCtx.resume().catch(()=>{});
+      const source=meterCtx.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+      const analyser=meterCtx.createAnalyser();analyser.fftSize=256;
+      source.connect(analyser); // No destination: analysis only; nothing recorded.
+      return analyser;
+    }catch(_){return null;}
+  }
+  function speaking(analyser,enabled=true){
+    if(!analyser||!enabled||meterCtx?.state!=='running')return false;
+    const samples=new Uint8Array(analyser.fftSize);analyser.getByteTimeDomainData(samples);
+    let sum=0;for(const x of samples){const v=(x-128)/128;sum+=v*v;}
+    return Math.sqrt(sum/samples.length)>.028;
+  }
+  function tickVoice(time){
+    if(!call||call.medium!=='audio'||call.state!=='accepted'||!localMedia){clearMeters();return;}
+    if(time-voiceLast>95){
+      const enabled=localMedia.getAudioTracks().some(t=>t.enabled&&t.readyState==='live');
+      myAvatar?.closest('.vxsk-voice-user')?.classList.toggle('is-speaking',speaking(localAnalyser,enabled));
+      peerAvatar?.closest('.vxsk-voice-user')?.classList.toggle('is-speaking',speaking(remoteAnalyser));
+      voiceLast=time;
+    }
+    meterRaf=requestAnimationFrame(tickVoice);
+  }
+  function initMeter(){
+    if(!call||call.medium!=='audio'||!localMedia)return;
+    if(!localAnalyser)localAnalyser=meter(localMedia);
+    if(remoteMedia?.getAudioTracks().length&&!remoteAnalyser)remoteAnalyser=meter(remoteMedia);
+    if(!meterRaf)meterRaf=requestAnimationFrame(tickVoice);
+  }
+
   function present(){
     if(!call)return;
     display();
@@ -35,9 +162,13 @@
     muteButton.hidden=call.state!=='accepted'||!localMedia;
     cameraButton.hidden=call.medium!=='video'||call.state!=='accepted'||!localMedia;
     mediaBox.hidden=call.medium!=='video'||!localMedia;
+    if(voices)voices.hidden=call.medium!=='audio'||call.state!=='accepted';
     if(playMediaButton)playMediaButton.hidden=call.state!=='accepted'||!playNeedsGesture;
+    updateRingtone();mini();
   }
   function stopMedia(){
+    clearMeters();
+    if(ringTimer){clearInterval(ringTimer);ringTimer=null;}
     try{peerConnection?.close();}catch(_){} peerConnection=null;
     localMedia?.getTracks().forEach(track=>track.stop());localMedia=null;
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
@@ -47,8 +178,9 @@
     if(playMediaButton)playMediaButton.hidden=true;
   }
   function dismiss(message=''){
-    stopMedia();call=null;
-    if(panel.open)panel.close();panel.hidden=true;
+    stopMedia();call=null;minimized=false;
+    if(panel.open)panel.close();panel.hidden=true;if(dock)dock.hidden=true;
+    if(voices)voices.hidden=true;
     setStatus('');
     if(message){const feedback=$('community-feedback');if(feedback)feedback.textContent=message;}
   }
@@ -136,13 +268,14 @@
       });
       if(!call||call.id!==startedCallId){stream.getTracks().forEach(t=>t.stop());return;}
       localMedia=stream;localVideo.srcObject=stream;
+      if(call.medium==='audio')initMeter();
       if(call.medium==='video')localVideo.play().catch(()=>{});
       present();
       if(call.role==='callee'&&call.state==='ringing'){
         const accepted=await request('vxsk_friend_call_answer',{p_call_id:call.id,p_accept:true});
         if(!accepted)throw Error('This invitation is no longer available.');
         call.state='accepted';
-        present();
+        updateAvatars();present();
       }
       makeConnection();
       setStatus('Connecting to your friend…');
@@ -172,6 +305,7 @@
       if(!call||peerConnection!==pc)return;
       if(!remoteMedia)remoteMedia=new MediaStream();
       if(!remoteMedia.getTracks().some(t=>t.id===event.track.id))remoteMedia.addTrack(event.track);
+      if(call.medium==='audio'&&event.track.kind==='audio'){remoteAnalyser=meter(remoteMedia);initMeter();}
       // Separate remote sound from picture. This allows silent video autoplay while
       // a dedicated audio element can be enabled by a user gesture if necessary.
       if(call.medium==='video'){
@@ -257,7 +391,7 @@
         dismiss(data?.state==='declined'?'Your friend declined the call.':data?.state==='missed'?'Call invitation expired.':'Call ended.');return;
       }
       if(data.state==='accepted'&&call.state==='ringing'){
-        call.state='accepted';present();
+        call.state='accepted';updateAvatars();present();
         if(call.role==='caller')await startMedia();
       }
       if(call.state==='accepted'&&Array.isArray(data.events))await consumeSignals(data.events);
@@ -265,7 +399,7 @@
     finally{updating=false;}
   }
   async function pollInbox(){
-    if(call||checkingInbox||document.hidden)return;
+    if(call||checkingInbox)return; // Tab must stay open; background polling may be throttled.
     checkingInbox=true;
     try{
       const u=await currentUser();if(!u){myId=null;return;}myId=u.id;
@@ -274,7 +408,7 @@
       const incoming=list.find(x=>x.callee===myId&&x.state==='ringing');
       if(incoming){
         call={id:incoming.id,role:'callee',peerId:incoming.peer_id,medium:incoming.medium,name:incoming.peer_name||'VXSK FRIEND',state:'ringing'};
-        setStatus('Incoming call. Camera and microphone stay OFF until you accept.');present();
+        minimized=false;updateAvatars();setStatus('Incoming call. Camera and microphone stay OFF until you accept.');present();
       }
       // Do not auto-join a second tab after an invitation has been accepted.
     }catch(_){/* Missing staging migration is surfaced when a player clicks Call. */}
@@ -305,7 +439,7 @@
       const id=await request('vxsk_friend_call_start',{p_peer:peerId,p_medium:medium});
       if(!id){const feedback=$('community-feedback');if(feedback)feedback.textContent='Call unavailable. Both accounts must be accepted friends and unblocked, with no other active calls.';return;}
       call={id,role:'caller',peerId,medium,name:String(name||'VXSK FRIEND').slice(0,40),state:'ringing'};
-      setStatus('Calling… Your microphone/camera will only start if your friend accepts.');present();
+      minimized=false;updateAvatars();setStatus('Calling… Your microphone/camera will only start if your friend accepts.');present();
     }catch(e){const feedback=$('community-feedback');if(feedback)feedback.textContent=e.message;}
   }
   acceptButton.addEventListener('click',async()=>{
@@ -315,8 +449,24 @@
   });
   declineButton.addEventListener('click',declineCall);
   hangupButton.addEventListener('click',endCall);
-  closeButton.addEventListener('click',()=>call?.role==='callee'&&call.state==='ringing'?declineCall():endCall());
-  panel.addEventListener('cancel',event=>{event.preventDefault();call?.role==='callee'&&call.state==='ringing'?declineCall():endCall();});
+  // X/Escape no longer decline or end a call. Calls end only via explicit END/DECLINE.
+  closeButton.addEventListener('click',minimize);
+  panel.addEventListener('cancel',event=>{event.preventDefault();minimize();});
+  $('vxsk-call-restore')?.addEventListener('click',restore);
+  $('vxsk-call-dock-end')?.addEventListener('click',endCall);
+  ringToggle?.addEventListener('click',async()=>{
+    ringEnabled=!ringEnabled;
+    try{localStorage.setItem('vxsk-call-ringtone',''+ringEnabled);}catch(_){}
+    ringtoneUi();
+    if(ringEnabled){const ok=await unlockRingtone();if(!ok)setStatus('Ringtone blocked by browser. Tap the ringtone button again.');}
+    updateRingtone();
+  });
+  // Any prior user gesture may allow the saved ringtone preference to play;
+  // never request microphone/camera merely to enable a ringtone.
+  document.addEventListener('pointerdown',()=>{if(ringEnabled&&(!ringCtx||ringCtx.state==='suspended'))void unlockRingtone();},{passive:true});
+  document.addEventListener('keydown',()=>{if(ringEnabled&&(!ringCtx||ringCtx.state==='suspended'))void unlockRingtone();});
+  try{ringEnabled=localStorage.getItem('vxsk-call-ringtone')!=='false';}catch(_){ringEnabled=true;}
+  ringtoneUi();
   playMediaButton?.addEventListener('click',async()=>{
     if(!call)return;
     // An explicit click allows unmuted audio on browsers with autoplay protection.
@@ -330,6 +480,7 @@
     const muted=tracks.some(track=>track.enabled);
     tracks.forEach(track=>{track.enabled=!muted;});
     muteButton.textContent=muted?'UNMUTE MICROPHONE':'MUTE MICROPHONE';
+    if(muted)myAvatar?.closest('.vxsk-voice-user')?.classList.remove('is-speaking');
   });
   cameraButton.addEventListener('click',()=>{
     const tracks=localMedia?.getVideoTracks()||[];if(!tracks.length)return;

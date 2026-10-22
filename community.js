@@ -275,6 +275,15 @@
   window.addEventListener('vxsk:auth-change',refreshState);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&peer)refreshChat();});
   setInterval(()=>{if(peer&&!document.hidden)refreshChat();},20000);
+  // Expose only the current accepted-friends snapshot and opt-in avatars to
+  // the call UI. Storage permissions still verify every signed URL request.
+  window.VXSKCommunity=Object.freeze({
+    friend: id=>(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id)||null,
+    addFriendAvatar: async (node,id)=>{
+      const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);
+      if(item?.avatar_path)await addAvatar(node,id,item.avatar_path);
+    }
+  });
   handleSearch();
   // Async auth can finish after this module initializes.
   setTimeout(async()=>{await refreshState();await heartbeat();},1200);
