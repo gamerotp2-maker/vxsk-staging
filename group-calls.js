@@ -1,5 +1,5 @@
 'use strict';
-/* VXSK 12.8.23: four-participant consent-based mesh calls. Each peer has
+/* VXSK 12.8.24: independently usable camera, mic, screen and resilient mesh calls. Each peer has
    independently negotiated microphone, camera, screen video and screen audio.
    Group signaling remains scoped to active accepted group members in Supabase. */
 (()=>{
@@ -13,6 +13,24 @@
   const node=(tag,label,cls)=>{const n=document.createElement(tag);if(label!=null)n.textContent=label;if(cls)n.className=cls;return n;};
   let room=null,session=null,user=null,local=null,shareStream=null,sharingVideo=null,sharingAudio=null;
   let peers=new Map(),cursor=0,updating=false,joining=false,timer=null,liveMedium='audio',epoch=0;
+  function mediaState(){
+    const camera=local?.getVideoTracks().some(t=>t.readyState==='live'&&t.enabled)===true;
+    return {vxskMediaState:true,camera,screen:!!sharingVideo,audio:!!sharingAudio};
+  }
+  async function announce(p){
+    if(!p||!peers.has(p.id)||!room)return;
+    p.lastStateAt=Date.now();
+    await send(p,'ice',mediaState());
+  }
+  function refresh(p){
+    if(!p||!peers.has(p.id)||!room)return;
+    if(user.id<p.id){
+      if(p.refreshTimer)clearTimeout(p.refreshTimer);
+      p.refreshTimer=setTimeout(()=>{p.refreshTimer=null;void offer(p,true);},500);
+    }else void send(p,'ice',{vxskRefresh:true});
+  }
+  function refreshAll(){for(const p of peers.values()){void announce(p);refresh(p);}}
+
   const say=s=>{status.textContent=s;};
   async function rpc(method,args){const c=api();if(!c)throw Error('Sign in before joining a call.');const {data,error}=await c.rpc(method,args);if(error){console.warn('VXSK group-call RPC',method,error.code||'error');throw Error(error.code==='PGRST202'?'Run V12.8.22 group-call migration in STAGING.':'Group call connection or permission error.');}return data;}
   function open(){dock.hidden=true;panel.hidden=false;try{if(!panel.open)panel.showModal();}catch(_){panel.hidden=false;}}
@@ -71,23 +89,47 @@
   async function ensureCamera(){
     if(!room||!local)return;
     const t=local.getVideoTracks()[0];
-    if(t){t.enabled=!t.enabled;for(const p of peers.values())void send(p,'ice',{vxskCamera:true,enabled:t.enabled});
-      const own=members.querySelector('.vxsk-group-peer.is-local');own?.classList.toggle('is-audio',!t.enabled);updateCamera();return;}
+    if(t&&t.readyState==='live'){
+      t.enabled=!t.enabled;
+      for(const p of peers.values())void send(p,'ice',{vxskCamera:true,enabled:t.enabled});
+      const own=members.querySelector('.vxsk-group-peer.is-local');own?.classList.toggle('is-audio',!t.enabled);
+      updateCamera();refreshAll();return;
+    }
+    const token=epoch;
     let extra;try{extra=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360}},audio:false});}
     catch(e){say('Camera unavailable or permission refused. Microphone call continues.');return;}
-    const track=extra.getVideoTracks()[0];if(!room||!track){safeMedia(extra);return;}
+    const track=extra.getVideoTracks()[0];if(!room||epoch!==token||!track){safeMedia(extra);return;}
+    const failures=await Promise.all([...peers.values()].map(p=>p.cameraSender.replaceTrack(track).then(()=>false).catch(()=>true)));
+    if(failures.some(Boolean))say('One camera peer needs recovery; audio is still active.');
+    local.getVideoTracks().filter(t=>t.readyState!=='live').forEach(t=>local.removeTrack(t));
     local.addTrack(track);track.enabled=true;const own=members.querySelector('.vxsk-group-peer.is-local');
-    if(own){own.querySelector('video').srcObject=new MediaStream([track]);own.classList.remove('is-audio');}
-    await Promise.all([...peers.values()].map(p=>p.cameraSender.replaceTrack(track).catch(()=>{})));
-    track.onended=()=>{if(local?.getVideoTracks().includes(track)){local.removeTrack(track);updateCamera();}};
+    if(own){own.vid.srcObject=new MediaStream([track]);void own.vid.play().catch(()=>{});own.card.classList.remove('is-audio');}
+    track.onended=()=>{
+      if(!local?.getVideoTracks().includes(track))return;
+      local.removeTrack(track);
+      for(const p of peers.values())void p.cameraSender.replaceTrack(null).catch(()=>{});
+      if(own){own.vid.srcObject=null;own.card.classList.add('is-audio');}
+      updateCamera();refreshAll();
+    };
     for(const p of peers.values())void send(p,'ice',{vxskCamera:true,enabled:true});
-    updateCamera();
+    updateCamera();refreshAll();
   }
   function killPeer(id){const p=peers.get(id);if(!p)return;peers.delete(id);
+    if(p.refreshTimer)clearTimeout(p.refreshTimer);
     try{p.pc.close();}catch(_){}p.micSound.srcObject=null;p.shareSound.srcObject=null;setRemoteShare(p,false);p.ui.card.remove();
   }
-  function send(p,kind,body){if(!room||!session||!peers.has(p.id))return Promise.resolve(false);
-    return rpc('vxsk_group_call_signal',{p_group:room,p_session:session,p_peer:p.id,p_kind:kind,p_body:body}).catch(()=>false);
+  function send(p,kind,body){
+    if(!room||!session||!peers.has(p.id))return Promise.resolve(false);
+    // Supabase RPCs may finish out of order. Signaling for each recipient
+    // MUST preserve SDP-before-state order to prevent lost remote shares.
+    const group=room,sid=session;
+    const operation=()=>{
+      if(!room||room!==group||session!==sid||peers.get(p.id)!==p)return false;
+      return rpc('vxsk_group_call_signal',{p_group:group,p_session:sid,p_peer:p.id,p_kind:kind,p_body:body}).catch(()=>false);
+    };
+    const result=p.sendQueue.then(operation,operation);
+    p.sendQueue=result.then(()=>{},()=>{});
+    return result;
   }
   async function addCandidate(p,data){if(!data?.candidate)return;
     if(!p.pc.remoteDescription){p.ice.push(data);return;}
@@ -107,7 +149,8 @@
     const micSound=node('audio'),shareSound=node('audio');micSound.autoplay=shareSound.autoplay=true;
     ui.card.append(micSound,shareSound);
     p={id,name,session:sid,pc,ui,ice:[],cameraSender,shareSender,shareAudioSender,micSound,shareSound,
-      screenTrack:null,screenActive:false,shareUi:null,muteMic:false,muteShare:false,cameraOff:false,offered:false};peers.set(id,p);
+      screenTrack:null,screenActive:false,shareUi:null,muteMic:false,muteShare:false,cameraOff:false,offered:false,
+      sendQueue:Promise.resolve(),lastStateAt:0,lastOfferAt:0,offerAttempts:0,refreshTimer:null};peers.set(id,p);
     if(sharingVideo)void shareSender.replaceTrack(sharingVideo).catch(()=>{});
     if(sharingAudio)void shareAudioSender.replaceTrack(sharingAudio).catch(()=>{});
     ui.muteBtn.addEventListener('click',()=>{p.muteMic=!p.muteMic;p.micSound.muted=p.muteMic;
@@ -117,10 +160,30 @@
       const trans=pc.getTransceivers(),idx=trans.indexOf(event.transceiver);
       if(idx===0){p.micSound.srcObject=new MediaStream([event.track]);void play(p.micSound);}
       else if(idx===1){ui.vid.srcObject=new MediaStream([event.track]);
-        const show=()=>ui.card.classList.toggle('is-audio',event.track.muted||p.cameraOff);
-        event.track.addEventListener('mute',show);event.track.addEventListener('unmute',show);show();void ui.vid.play().catch(()=>{});}
-      else if(idx===2){p.screenTrack=event.track;const changed=()=>setRemoteShare(p,p.screenActive&&!event.track.muted);
-        event.track.addEventListener('unmute',changed);event.track.addEventListener('mute',changed);event.track.addEventListener('ended',()=>setRemoteShare(p,false));changed();}
+        let hideDelay=null;
+        const show=()=>{
+          if(event.track.muted||p.cameraOff){
+            if(hideDelay)clearTimeout(hideDelay);
+            hideDelay=setTimeout(()=>{if(peers.get(id)===p)ui.card.classList.add('is-audio');},1100);
+          }else{
+            if(hideDelay)clearTimeout(hideDelay);
+            ui.card.classList.remove('is-audio');void ui.vid.play().catch(()=>{});
+          }
+        };
+        p.updateCameraTile=show;
+        event.track.addEventListener('mute',show);event.track.addEventListener('unmute',show);
+        event.track.addEventListener('ended',()=>ui.card.classList.add('is-audio'));
+        show();void ui.vid.play().catch(()=>{});}
+      else if(idx===2){p.screenTrack=event.track;
+        const changed=()=>{
+          // Incoming RTP has priority over delayed metadata. A momentary
+          // track.muted event must not make the share flash/disappear.
+          if(!event.track.muted&&event.track.readyState==='live')p.screenActive=true;
+          setRemoteShare(p,p.screenActive);
+        };
+        event.track.addEventListener('unmute',changed);event.track.addEventListener('mute',changed);
+        event.track.addEventListener('ended',()=>{p.screenTrack=null;p.screenActive=false;setRemoteShare(p,false);});
+        changed();}
       else if(idx===3){const on=()=>{p.shareSound.srcObject=new MediaStream([event.track]);p.shareSound.muted=p.muteShare;void play(p.shareSound);};
         const off=()=>{p.shareSound.srcObject=null;};event.track.addEventListener('unmute',on);event.track.addEventListener('mute',off);if(!event.track.muted)on();}
     };
@@ -133,17 +196,27 @@
     if(user.id<id)void offer(p);
     return p;
   }
-  async function offer(p){if(!room||peers.get(p.id)!==p||p.offered||p.pc.signalingState!=='stable')return;
-    p.offered=true;try{await p.pc.setLocalDescription(await p.pc.createOffer());
+  async function offer(p,refresh=false){
+    if(!room||peers.get(p.id)!==p||user.id>=p.id||(!refresh&&p.offered)||p.pc.signalingState!=='stable')return;
+    p.offered=true;
+    try{
+      await p.pc.setLocalDescription(await p.pc.createOffer());
+      p.lastOfferAt=Date.now();p.offerAttempts=0;
       if(!await send(p,'offer',p.pc.localDescription.toJSON()))throw Error('offer rejected');
-      if(sharingVideo)await send(p,'ice',{vxskScreen:true,active:true,audio:!!sharingAudio});
+      await announce(p);
     }catch(_){p.offered=false;p.ui.state.textContent='SIGNAL FAILED';}
   }
   async function messages(events){for(const item of events||[]){const id=Number(item.id);if(!Number.isSafeInteger(id)||id<=cursor)continue;
     const p=peers.get(item.sender);if(!p||p.session!==item.sender_session){cursor=id;continue;}
     try{
       if(item.kind==='ice'){
-        if(item.body?.vxskCamera){p.cameraOff=item.body.enabled!==true;p.ui.card.classList.toggle('is-audio',p.cameraOff||!p.ui.vid.srcObject?.getVideoTracks()?.[0]||p.ui.vid.srcObject.getVideoTracks()[0].muted);}
+        if(item.body?.vxskRefresh===true){if(user.id<p.id)refresh(p);}
+        else if(item.body?.vxskMediaState===true){
+          p.cameraOff=item.body.camera!==true;
+          p.screenActive=item.body.screen===true;
+          p.updateCameraTile?.();setRemoteShare(p,p.screenActive);
+        }
+        else if(item.body?.vxskCamera){p.cameraOff=item.body.enabled!==true;p.updateCameraTile?.();}
         else if(item.body?.vxskScreen){p.screenActive=item.body.active===true;setRemoteShare(p,p.screenActive);}
         else await addCandidate(p,item.body);
       }else if(item.kind==='offer'&&item.body?.type==='offer'){
@@ -151,7 +224,7 @@
         await p.pc.setRemoteDescription(item.body);await flush(p);
         await p.pc.setLocalDescription(await p.pc.createAnswer());
         if(!await send(p,'answer',p.pc.localDescription.toJSON()))throw Error('answer rejected');
-        if(sharingVideo)await send(p,'ice',{vxskScreen:true,active:true,audio:!!sharingAudio});
+        await announce(p);
       }else if(item.kind==='answer'&&item.body?.type==='answer'){
         if(p.pc.signalingState==='have-local-offer'){await p.pc.setRemoteDescription(item.body);await flush(p);}
       }
@@ -171,6 +244,15 @@
       }
       for(const id of [...peers.keys()])if(!present.has(id))killPeer(id);
       await messages(events);
+      for(const p of peers.values()){
+        if(p.pc.connectionState==='connected'&&Date.now()-p.lastStateAt>12000)void announce(p);
+        // Re-deliver an unanswered SDP offer: a newcomer might not yet have
+        // appeared in the other client's roster when our first message landed.
+        if(user.id<p.id&&p.pc.signalingState==='have-local-offer'&&
+           Date.now()-p.lastOfferAt>9500&&p.offerAttempts<3){
+          p.offerAttempts++;p.lastOfferAt=Date.now();void send(p,'offer',p.pc.localDescription.toJSON());
+        }
+      }
       say('LIVE · '+(peers.size+1)+' / 4 MEMBERS · '+shares.children.length+' ACTIVE SHARES');
     }catch(e){if(token===epoch)say(e.message||'Reconnecting…');}finally{updating=false;}
   }
@@ -182,9 +264,10 @@
       const {data:aal}=await c.auth.mfa.getAuthenticatorAssuranceLevel();if(aal?.currentLevel==='aal1'&&aal.nextLevel==='aal2')throw Error('Complete 2FA first.');
       if(!navigator.mediaDevices?.getUserMedia)throw Error('HTTPS and a supported browser are required.');
       user=u;liveMedium=medium;
-      // Video permission refusal falls back to microphone-only, without ending the call.
-      try{local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:medium==='video'?{width:{ideal:640},height:{ideal:360}}:false});}
-      catch(e){if(medium==='video')local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});else throw e;}
+      // Microphone first; camera is optional and individually controlled.
+      local=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      // Video permission is requested after joining, without holding up the
+      // microphone call or requiring anyone else's camera to be available.
       const sid=await rpc('vxsk_group_call_join',{p_group:group});if(!sid)throw Error('Group call full (maximum four), already open in another tab, or unavailable.');
       session=sid;room=group;epoch++;cursor=0;peers.clear();
       $('vxsk-group-call-title').textContent=(name||'SQUAD')+' · '+medium.toUpperCase()+' GROUP CALL';
@@ -195,6 +278,7 @@
       dock.querySelector('#vxsk-group-call-dock-title').textContent=name||'GROUP CALL';open();
       await poll();timer=setInterval(()=>void poll(),2200);
       say('Connected to your squad. Each member can share one screen.');
+      if(medium==='video')void ensureCamera();
     }catch(e){const f=$('vxsk-group-feedback');if(f)f.textContent=e.message||'Unable to join call.';
       if(!room){safeMedia(local);local=null;say(e.message||'Unable to join call.');}
     }finally{joining=false;}
@@ -205,13 +289,15 @@
       await p.shareSender.replaceTrack(null).catch(()=>{});await p.shareAudioSender.replaceTrack(null).catch(()=>{});
       await send(p,'ice',{vxskScreen:true,active:false,audio:false});
     }));setLocalShare(false);shareBtn.textContent='SHARE SCREEN';
+    for(const p of peers.values())void announce(p);
   }
   async function toggleShare(){if(!room)return;if(shareStream){void stopShare();return;}
     if(!navigator.mediaDevices?.getDisplayMedia){say('Screen capture is not supported by this browser.');return;}
+    const token=epoch;
     let stream;try{
       stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:30}},audio:true,systemAudio:'include',surfaceSwitching:'include'});
       const vid=stream.getVideoTracks()[0],aud=stream.getAudioTracks()[0]||null;
-      if(!room||!vid){safeMedia(stream);return;}
+      if(!room||epoch!==token||!vid){safeMedia(stream);return;}
       shareStream=stream;sharingVideo=vid;sharingAudio=aud;
       const outcomes=await Promise.all([...peers.values()].map(async p=>{
         try{await p.shareSender.replaceTrack(vid);if(aud)await p.shareAudioSender.replaceTrack(aud);}
@@ -220,7 +306,9 @@
       }));
       vid.onended=()=>{if(sharingVideo===vid)void stopShare();};
       if(aud)aud.onended=()=>{if(sharingAudio===aud){sharingAudio=null;for(const p of peers.values())void p.shareAudioSender.replaceTrack(null).catch(()=>{});}};
-      setLocalShare(true);shareBtn.textContent='STOP SHARING';say(aud?'Sharing screen + supported tab sound.':'Screen shared; for sound, select Share tab audio where available.');
+      setLocalShare(true);shareBtn.textContent='STOP SHARING';
+      refreshAll();
+      say(aud?'Sharing screen + supported tab sound.':'Screen shared; for sound, select Share tab audio where available.');
       if(outcomes.some(x=>!x))say('Share started, but one peer may be reconnecting.');
     }catch(e){if(stream&&shareStream!==stream)safeMedia(stream);if(e.name!=='NotAllowedError')say('Could not share this screen; try a browser tab.');}
   }

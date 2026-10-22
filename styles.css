@@ -989,16 +989,16 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 @media(prefers-reduced-motion:reduce){.vxsk-hero-film{opacity:0!important;visibility:hidden!important}}
 .vxsk-dm-reactions{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}.vxsk-dm-reactions small{font-size:10px;color:#bcaee1}.vxsk-dm-reactions button{padding:4px 6px;border-radius:7px;font-size:12px;min-width:28px}
 
-/* VXSK V12.8.22 — the shared screen is fullscreen, not the call control panel. */
+/* VXSK V12.8.24 — share is a separate tile, never substitutes either camera. */
 .vxsk-call-video:fullscreen,.vxsk-call-video.vxsk-share-theater{width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;aspect-ratio:auto!important;inset:0!important;margin:0!important;border:0!important;border-radius:0!important;background:#03060d!important;display:block!important;overflow:hidden!important;box-sizing:border-box!important}
 .vxsk-call-video.vxsk-share-theater{position:fixed!important;z-index:2147483647!important}
 .vxsk-call-video:fullscreen #vxsk-remote-video,.vxsk-call-video.vxsk-share-theater #vxsk-remote-video{width:100%!important;height:100%!important;object-fit:contain!important}
-.vxsk-call-video[data-local-share="true"] #vxsk-local-video{position:absolute;inset:0;z-index:1;width:100%;height:100%;min-height:0;transform:none;object-fit:contain;border:0;border-radius:0;background:#03060d}
-.vxsk-call-video[data-local-share="true"] #vxsk-remote-video{position:absolute;top:auto;bottom:10px;right:10px;z-index:2;width:min(27%,180px);height:27%;border:2px solid #9975d7;border-radius:10px;object-fit:cover;background:#10182b}
+/* The previous rules covered the remote camera with the local camera when a
+   screen was shared. Both cameras remain visible; screens render below. */
 .vxsk-share-exit{position:absolute!important;top:max(env(safe-area-inset-top),12px);right:max(env(safe-area-inset-right),12px);z-index:10;border:1px solid #bdaaff!important;border-radius:10px!important;background:rgba(11,14,30,.9)!important;color:#fff!important;padding:10px 14px!important;font-weight:800!important;cursor:pointer!important}
 .vxsk-share-exit[hidden]{display:none!important}
 .vxsk-call-video:fullscreen #vxsk-local-video:not(:only-child),.vxsk-call-video.vxsk-share-theater #vxsk-local-video:not(:only-child){max-height:100%}
-@media(max-width:680px){.vxsk-call-video[data-local-share="true"] #vxsk-remote-video{width:29%;height:22%}.vxsk-share-exit{font-size:11px;padding:8px 10px!important}}
+@media(max-width:680px){.vxsk-share-exit{font-size:11px;padding:8px 10px!important}}
 .vxsk-challenge-box{margin-top:16px}
 .vxsk-workflow{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px}
 .vxsk-workflow span{padding:8px 11px;border:1px solid #595283;background:#1a2145;border-radius:8px;font-weight:800;font-size:11px;color:#e6ddff}

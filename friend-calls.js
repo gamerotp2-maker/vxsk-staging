@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.22: fullscreen video/share surface and consented screen/tab audio sharing.
+// VXSK STAGING V12.8.24: independent camera/mic/share, sender repair, and stable receiver tiles.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -39,7 +39,36 @@
   let iceServers=freeStunServers,hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
   let videoSender=null,screenVideoSender=null,screenAudioSender=null,shareStream=null,shareTrack=null,shareAudioTrack=null,sharing=false,sharingAudio=false,friendScreen=false,friendSharingAudio=false;
   let peerCameraTrack=null,peerScreenTrack=null,peerCameraOff=false,friendMuted=false,shareMuted=false,shareTiles={};
+  let cameraPlaceholderTimer=null;
   let callStartedAt=0;
+  let mediaRefreshTimer=null, mediaRefreshBusy=false, lastStateSync=0, autoCameraRequested=false;
+  function broadcastMediaState(){
+    if(!call||call.state!=='accepted'||!peerConnection)return;
+    const cam=localMedia?.getVideoTracks().some(t=>t.readyState==='live'&&t.enabled)===true;
+    queueSignal('ice',{vxskMediaState:true,camera:cam,screen:sharing,audio:sharingAudio});
+    lastStateSync=Date.now();
+  }
+  // Caller is the sole offerer, avoiding offer collisions. The callee may ask
+  // the caller for a fresh SDP after camera/screen activation. This is a repair
+  // for browsers which leave an initially trackless RTP sender muted.
+  function requestMediaRefresh(){
+    if(!call||call.state!=='accepted'||!peerConnection)return;
+    if(call.role==='callee'){queueSignal('ice',{vxskRefresh:true});return;}
+    if(mediaRefreshTimer)clearTimeout(mediaRefreshTimer);
+    const id=call.id,pc=peerConnection;
+    mediaRefreshTimer=setTimeout(async()=>{
+      mediaRefreshTimer=null;
+      if(!call||call.id!==id||peerConnection!==pc||pc.signalingState==='closed')return;
+      if(mediaRefreshBusy||pc.signalingState!=='stable')return;
+      mediaRefreshBusy=true;
+      try{
+        // Do not stop/recreate microphone streams during repair.
+        await pc.setLocalDescription(await pc.createOffer());
+        if(call?.id===id&&peerConnection===pc)sendDescription('offer');
+      }catch(_){if(call?.id===id)setStatus('Media update delayed; your microphone call continues.');}
+      finally{mediaRefreshBusy=false;}
+    },450);
+  }
   let meterCtx=null,meterRaf=0,localAnalyser=null,remoteAnalyser=null;
   let voiceLast=0;
 
@@ -138,7 +167,6 @@
       pendingIce=[];videoDescriptionQueued=false;
       const offer=await pc.createOffer({iceRestart:true});
       await pc.setLocalDescription(offer);
-      await waitForVideoIce(pc);
       if(call?.id===id&&peerConnection===pc)sendDescription('offer');
     }catch(_){if(call?.id===id)setStatus('Could not restart the connection. End the call and try again.');}
     finally{iceRestarting=false;}
@@ -163,6 +191,7 @@
     if(old)old.onended=null;
     if(oldAudio)oldAudio.onended=null;
     shareStream?.getTracks()?.forEach(t=>t.stop());shareStream=null;
+    if(old&&call?.state==='accepted')broadcastMediaState();
     removeShareTile('self');
     if(localVideo)localVideo.srcObject=localMedia?.getVideoTracks().length?new MediaStream(localMedia.getVideoTracks()):null;
     updateScreenUi();
@@ -171,7 +200,7 @@
     if(!call)return;
     if(screenButton){screenButton.hidden=call.state!=='accepted'||!peerConnection;screenButton.textContent=sharing?'STOP SHARING':'SHARE SCREEN';}
     if(shareLabel){shareLabel.hidden=!sharing&&!friendScreen;shareLabel.textContent=sharing?(sharingAudio?'YOU ARE SHARING + SOUND':'YOU ARE SHARING SCREEN'):(friendSharingAudio?'FRIEND IS SHARING + SOUND':'FRIEND IS SHARING SCREEN');}
-    mediaBox.hidden=call.medium!=='video'&&!(peerCameraTrack&&!peerCameraTrack.muted&&!peerCameraOff)&&!localMedia?.getVideoTracks().some(t=>t.enabled);
+    mediaBox.hidden=call.medium!=='video'&&!(peerCameraTrack&&!peerCameraTrack.muted&&!peerCameraOff)&&!localMedia?.getVideoTracks().some(t=>t.readyState==='live'&&t.enabled);
     updateCameraPlaceholder();
     mediaBox.dataset.localShare=String(sharing);
     mediaBox.dataset.remoteShare=String(friendScreen);
@@ -210,6 +239,7 @@
       shareStream=captured;shareTrack=track;shareAudioTrack=audioTrack;
       sharing=true;sharingAudio=!!audioTrack;
       queueSignal('ice',{vxskScreen:true,active:true,audio:sharingAudio});
+      broadcastMediaState();requestMediaRefresh();
       track.onended=()=>{if(shareTrack===track)stopScreenShare();};
       if(audioTrack)audioTrack.onended=()=>{
         if(shareAudioTrack===audioTrack){
@@ -219,7 +249,6 @@
         }
       };
       showShareTile('self','YOU',track,null);
-      updateScreenUi();
       updateScreenUi();
       setStatus(audioTrack?
         'Sharing your screen and its audio. Your microphone stays independent.':
@@ -234,8 +263,19 @@
   }
   function updateCameraPlaceholder(){
     if(!cameraPlaceholder||!call)return;
-    cameraPlaceholder.hidden=!!(peerCameraTrack&&peerCameraTrack.readyState==='live'&&!peerCameraTrack.muted&&!peerCameraOff);
-    if(peerCameraTrack&&!peerCameraTrack.muted&&call.medium==='audio')mediaBox.hidden=false;
+    const live=!!(peerCameraTrack&&peerCameraTrack.readyState==='live'&&!peerCameraTrack.muted&&!peerCameraOff);
+    if(cameraPlaceholderTimer)clearTimeout(cameraPlaceholderTimer);
+    cameraPlaceholderTimer=null;
+    if(live){cameraPlaceholder.hidden=true;if(call.medium==='audio')mediaBox.hidden=false;return;}
+    // WebRTC can briefly mute a live camera during ICE changes or renegotiation.
+    // Keep the previous image for a moment rather than flashing the avatar.
+    if(peerCameraTrack&&peerCameraTrack.readyState==='live'&&peerCameraTrack.muted&&!peerCameraOff&&cameraPlaceholder.hidden){
+      cameraPlaceholderTimer=setTimeout(()=>{
+        if(!call)return;
+        const visible=peerCameraTrack&&peerCameraTrack.readyState==='live'&&!peerCameraTrack.muted&&!peerCameraOff;
+        cameraPlaceholder.hidden=!!visible;
+      },1100);
+    }else cameraPlaceholder.hidden=false;
   }
   function removeShareTile(id){const ui=shareTiles[id];if(!ui)return;ui.video.srcObject=null;
     ui.card.remove();delete shareTiles[id];if(privateShares)privateShares.hidden=!privateShares.childElementCount;
@@ -349,8 +389,10 @@
   function stopMedia(){
     clearMeters();
     stopTones();
+    if(cameraPlaceholderTimer)clearTimeout(cameraPlaceholderTimer);cameraPlaceholderTimer=null;
     if(iceRetryTimer)clearTimeout(iceRetryTimer);iceRetryTimer=null;iceRetry=0;iceRestarting=false;
     void exitLargeShare();
+    if(mediaRefreshTimer)clearTimeout(mediaRefreshTimer);mediaRefreshTimer=null;mediaRefreshBusy=false;lastStateSync=0;autoCameraRequested=false;
     stopScreenShare();videoSender=null;screenVideoSender=null;screenAudioSender=null;friendScreen=false;friendSharingAudio=false;peerCameraTrack=null;peerScreenTrack=null;peerCameraOff=false;friendMuted=false;shareMuted=false;
     removeShareTile('friend');removeShareTile('self');
     try{peerConnection?.close();}catch(_){} peerConnection=null;
@@ -448,22 +490,20 @@
     try{
       if(!navigator.mediaDevices?.getUserMedia||typeof RTCPeerConnection==='undefined')
         throw Error('Your browser does not support secure audio/video calling.');
-      setStatus('Asking your browser for '+(call.medium==='video'?'camera and microphone':'microphone')+' permission…');
+      setStatus('Asking for microphone permission… camera is optional.');
       const startedCallId=call.id;
-      let stream;
-      try{stream=await navigator.mediaDevices.getUserMedia({
-        audio:{echoCancellation:true,noiseSuppression:true},
-        video:call.medium==='video'?{width:{ideal:640},height:{ideal:360},facingMode:'user'}:false
-      });}catch(err){
-        if(call.medium!=='video')throw err;
-        // A missing/busy/denied camera must not hang up a valid microphone call.
-        stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
-      }
+      // Obtain microphone alone first. Denying/losing camera never affects it.
+      const stream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true,noiseSuppression:true},video:false
+      });
+      if(!call||call.id!==startedCallId){stream.getTracks().forEach(t=>t.stop());return;}
+      // Video calls connect by microphone first. Camera permission cannot hold
+      // the Accept flow hostage; each participant enables it independently.
       if(!call||call.id!==startedCallId){stream.getTracks().forEach(t=>t.stop());return;}
       localMedia=stream;localVideo.srcObject=stream.getVideoTracks().length?new MediaStream(stream.getVideoTracks()):null;
       cameraButton.textContent=stream.getVideoTracks().some(t=>t.enabled)?'CAMERA OFF':'CAMERA ON';
       if(call.medium==='audio')initMeter();
-      if(call.medium==='video')localVideo.play().catch(()=>{});
+      if(stream.getVideoTracks().length)void localVideo.play().catch(()=>{});
       present();
       if(call.role==='callee'&&call.state==='ringing'){
         const accepted=await request('vxsk_friend_call_answer',{p_call_id:call.id,p_accept:true});
@@ -519,16 +559,19 @@
         const toggle=()=>{if(!call||peerConnection!==pc)return;updateCameraPlaceholder();updateScreenUi();};
         track.addEventListener('unmute',toggle);track.addEventListener('mute',toggle);track.addEventListener('ended',toggle);
         toggle();void tryPlayMedia(remoteVideo);
-      }else if(idx===2){ // Friend screen video, never overwrites camera.
+      }else if(idx===2){ // Incoming share is independent of sender's camera.
         peerScreenTrack=track;
         const toggle=()=>{
           if(!call||peerConnection!==pc)return;
-          if(friendScreen&&!track.muted)showShareTile('friend',call.name,track,remoteShareAudio);
+          // An unmuted screen RTP track is authoritative even if the metadata
+          // message arrived late. Transient RTP mute must not delete the tile.
+          if(!track.muted&&track.readyState==='live')friendScreen=true;
+          if(friendScreen)showShareTile('friend',call.name,track,remoteShareAudio);
           else removeShareTile('friend');
           updateScreenUi();
         };
         track.addEventListener('unmute',toggle);track.addEventListener('mute',toggle);
-        track.addEventListener('ended',()=>{peerScreenTrack=null;removeShareTile('friend');});toggle();
+        track.addEventListener('ended',()=>{peerScreenTrack=null;friendScreen=false;removeShareTile('friend');updateScreenUi();});toggle();
       }else if(idx===3){ // Share sound is a separate incoming audio track.
         const show=()=>{
           if(!call||peerConnection!==pc)return;
@@ -549,7 +592,14 @@
     pc.onconnectionstatechange=()=>{
       if(!call||peerConnection!==pc)return;
       if(pc.connectionState==='connected'){
-        scheduleIceRecovery('connected');
+        scheduleIceRecovery('connected');broadcastMediaState();
+        // This optional prompt begins AFTER audio is connected. Camera refused,
+        // missing or in use never terminates the video call.
+        if(call.medium==='video'&&!autoCameraRequested){
+          autoCameraRequested=true;
+          if(!localMedia?.getVideoTracks().some(t=>t.readyState==='live'&&t.enabled))
+            void cameraButton.click();
+        }
         setStatus(playNeedsGesture?'Connected. Click PLAY FRIEND SOUND to enable audio.':'Connected · live '+call.medium+' call');
       }else if(pc.connectionState==='disconnected'){
         setStatus('Network briefly interrupted. Trying to reconnect…');
@@ -573,9 +623,17 @@
       if(!Number.isSafeInteger(id)||id<=lastSignal)continue;
       try{
         if(item.kind==='ice'){
-          if(item.body?.vxskCamera===true){peerCameraOff=item.body.enabled!==true;updateCameraPlaceholder();}
+          if(item.body?.vxskRefresh===true){if(call?.role==='caller')requestMediaRefresh();}
+          else if(item.body?.vxskMediaState===true){
+            peerCameraOff=item.body.camera!==true;
+            friendScreen=item.body.screen===true;friendSharingAudio=friendScreen&&item.body.audio===true;
+            if(friendScreen&&peerScreenTrack)showShareTile('friend',call.name,peerScreenTrack);
+            else if(!friendScreen)removeShareTile('friend');
+            updateScreenUi();
+          }
+          else if(item.body?.vxskCamera===true){peerCameraOff=item.body.enabled!==true;updateScreenUi();}
           else if(item.body?.vxskScreen===true){friendScreen=item.body.active===true;friendSharingAudio=friendScreen&&item.body.audio===true;
-            if(friendScreen&&peerScreenTrack&&!peerScreenTrack.muted)showShareTile('friend',call.name,peerScreenTrack,remoteShareAudio);else if(!friendScreen)removeShareTile('friend');
+            if(friendScreen&&peerScreenTrack)showShareTile('friend',call.name,peerScreenTrack);else if(!friendScreen)removeShareTile('friend');
             updateScreenUi();}
           else if(item.body&&typeof item.body.candidate==='string')await iceCandidate(item.body);
         }else if(item.kind==='offer'&&call?.role==='callee'&&item.body?.type==='offer'){
@@ -616,7 +674,7 @@
       localAudio:localMedia?.getAudioTracks().filter(t=>t.readyState==='live').length||0,
       localVideo:localMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
       remoteAudio:remoteMedia?.getAudioTracks().filter(t=>t.readyState==='live').length||0,
-      remoteVideo:remoteMedia?.getVideoTracks().filter(t=>t.readyState==='live').length||0,
+      remoteVideo:Number(peerCameraTrack?.readyState==='live'),
       audioPlaying:!!remoteAudio?.srcObject&&!remoteAudio.paused,
       sharedAudioPlaying:!!remoteShareAudio?.srcObject&&!remoteShareAudio.paused
     };
@@ -640,7 +698,11 @@
       'Your tracks: audio '+summary.localAudio+', video '+summary.localVideo,
       'Friend tracks: audio '+summary.remoteAudio+', video '+summary.remoteVideo,
       'Friend microphone playback: '+(summary.audioPlaying?'playing':'not playing yet'),
-      'Friend shared sound: '+(summary.sharedAudioPlaying?'playing':'not sharing or blocked')
+      'Friend shared sound: '+(summary.sharedAudioPlaying?'playing':'not sharing or blocked'),
+      'Your camera send: '+(videoSender?.track?.readyState||'OFF')+', enabled: '+(videoSender?.track?.enabled===true),
+      'Your screen send: '+(screenVideoSender?.track?.readyState||'OFF'),
+      'Friend camera receive: '+(peerCameraTrack?.readyState||'NOT READY')+', muted: '+(peerCameraTrack?.muted!==false),
+      'Friend screen receive: '+(peerScreenTrack?.readyState||'NOT READY')+', muted: '+(peerScreenTrack?.muted!==false)
     ];
     if(!hasTurn)lines.push('Free STUN-only mode: some networks cannot make direct calls without a relay.');
     networkInfo.textContent=lines.join('\n');networkInfo.hidden=false;
@@ -662,6 +724,9 @@
         if(call.role==='caller')await startMedia();
       }
       if(call.state==='accepted'&&Array.isArray(data.events))await consumeSignals(data.events);
+      // Periodic state snapshot repairs one-way UI when a share-start message
+      // is delayed or missed. No camera/mic permission request is performed.
+      if(peerConnection?.connectionState==='connected'&&Date.now()-lastStateSync>12000)broadcastMediaState();
     }catch(e){if(call?.id===id)setStatus(e.message||'Waiting for connection…');}
     finally{updating=false;}
   }
@@ -793,18 +858,35 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&theater){e.preventDefault();void exitLargeShare();}});
   document.addEventListener('fullscreenchange',syncFullscreenButton);
   screenButton?.addEventListener('click',()=>{if(sharing)stopScreenShare();else void startScreenShare();});
-    cameraButton.addEventListener('click',async()=>{
+  cameraButton.addEventListener('click',async()=>{
     if(!call||call.state!=='accepted'||!localMedia||!videoSender)return;
-    const track=localMedia.getVideoTracks()[0];
-    if(track){track.enabled=!track.enabled;cameraButton.textContent=track.enabled?'CAMERA OFF':'CAMERA ON';queueSignal('ice',{vxskCamera:true,enabled:track.enabled});updateScreenUi();return;}
-    let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360}},audio:false});}
-    catch(_){setStatus('Camera unavailable or blocked. Your audio call is still connected.');return;}
-    const added=stream.getVideoTracks()[0];if(!call||!peerConnection||!added){stream.getTracks().forEach(t=>t.stop());return;}
-    localMedia.addTrack(added);
-    try{await videoSender.replaceTrack(added);}catch(_){localMedia.removeTrack(added);added.stop();return;}
-    localVideo.srcObject=new MediaStream([added]);void localVideo.play().catch(()=>{});
-    added.onended=()=>{if(localMedia?.getVideoTracks().includes(added)){localMedia.removeTrack(added);updateScreenUi();}};
-    cameraButton.textContent='CAMERA OFF';queueSignal('ice',{vxskCamera:true,enabled:true});updateScreenUi();
+    const track=localMedia.getVideoTracks().find(t=>t.readyState==='live');
+    if(track){
+      track.enabled=!track.enabled;
+      cameraButton.textContent=track.enabled?'CAMERA OFF':'CAMERA ON';
+      queueSignal('ice',{vxskCamera:true,enabled:track.enabled});broadcastMediaState();updateScreenUi();
+      if(track.enabled)requestMediaRefresh();
+      return;
+    }
+    const id=call.id,pc=peerConnection;
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360}},audio:false});}
+    catch(e){setStatus('Camera unavailable ('+(e?.name||'permission/device')+'). Audio continues.');return;}
+    const added=stream.getVideoTracks()[0];
+    if(!call||call.id!==id||peerConnection!==pc||!added){stream.getTracks().forEach(t=>t.stop());return;}
+    // Do NOT replace/recreate peer connections or microphone tracks.
+    try{await videoSender.replaceTrack(added);}
+    catch(e){stream.getTracks().forEach(t=>t.stop());setStatus('Camera send could not start ('+(e?.name||'media')+'). Audio continues.');return;}
+    localMedia.getVideoTracks().filter(t=>t.readyState!=='live').forEach(t=>localMedia.removeTrack(t));
+    localMedia.addTrack(added);localVideo.srcObject=new MediaStream([added]);void localVideo.play().catch(()=>{});
+    added.onended=()=>{
+      if(!localMedia?.getVideoTracks().includes(added))return;
+      localMedia.removeTrack(added);void videoSender?.replaceTrack(null).catch(()=>{});
+      localVideo.srcObject=null;cameraButton.textContent='CAMERA ON';
+      queueSignal('ice',{vxskCamera:true,enabled:false});broadcastMediaState();updateScreenUi();
+    };
+    cameraButton.textContent='CAMERA OFF';queueSignal('ice',{vxskCamera:true,enabled:true});
+    broadcastMediaState();requestMediaRefresh();updateScreenUi();
   });
   muteFriendButton?.addEventListener('click',()=>{
     friendMuted=!friendMuted;remoteAudio.muted=friendMuted;
