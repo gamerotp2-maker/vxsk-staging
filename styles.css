@@ -1074,3 +1074,21 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 .community-avatar.is-category-icon{font-size:19px;background:linear-gradient(145deg,#4e2a95,#174f92);}
 .community-avatar.is-category-icon img{display:none!important;}
 .community-entry-copy .community-alert-meta{display:block;margin-top:3px;color:#ffb9d5;font-weight:700;letter-spacing:.02em;}
+
+/* VXSK 12.8.26 — visible mute state, camera self-view and accessible controls */
+.vxsk-group-call-panel .vxsk-call-actions button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-width:0;flex:1 1 190px;line-height:1.25}
+.vxsk-group-call-panel .vxsk-call-actions button svg{display:block;flex:0 0 19px;width:19px;height:19px}
+.vxsk-group-call-panel .vxsk-call-actions button span{display:block;white-space:normal}
+.vxsk-participant-indicators{position:absolute;z-index:7;top:14px;left:14px;right:14px;display:flex;flex-wrap:wrap;gap:5px;pointer-events:none}
+.vxsk-participant-indicators span{border:1px solid #f77d9d;border-radius:20px;padding:5px 8px;background:#731b37ef;color:white;font:800 10px/1.1 var(--body);box-shadow:0 2px 12px #0009}
+.vxsk-participant-indicators .vxsk-camera-indicator{border-color:#8991bc;background:#171a3eef}
+.vxsk-participant-indicators span[hidden]{display:none!important}
+.vxsk-group-peer.mic-muted{border-color:#db567e}
+.vxsk-group-peer.is-local video{transform:scaleX(-1);object-fit:cover}
+.vxsk-group-peer:not(.is-audio) .vxsk-member-placeholder{display:none!important}
+.vxsk-group-peer.is-local:not(.is-audio) video{display:block!important}
+.vxsk-share-waiting{position:absolute;inset:0;display:grid;place-items:center;z-index:1;background:#10132c;color:#e1d7ff;text-align:center;font:800 13px var(--body);pointer-events:none;padding:20px}
+.vxsk-share-waiting[hidden]{display:none!important}
+.vxsk-share-card video{position:relative;z-index:0}
+.vxsk-share-card .vxsk-screen-label,.vxsk-share-card .vxsk-share-tools{z-index:5}
+@media(max-width:580px){.vxsk-group-call-panel .vxsk-call-actions button{flex-basis:calc(50% - 8px);font-size:11px}.vxsk-group-call-panel .vxsk-call-actions button svg{width:17px;height:17px;flex-basis:17px}}

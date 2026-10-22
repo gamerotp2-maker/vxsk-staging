@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.24: independent camera/mic/share, sender repair, and stable receiver tiles.
+// VXSK STAGING V12.8.26: independent camera/mic/share, sender repair, and stable receiver tiles.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -300,7 +300,10 @@
       tools.append(mute,full);card.append(video,label,tools);privateShares.append(card);
       ui={card,video};shareTiles[id]=ui;
     }
-    ui.video.srcObject=new MediaStream([track]);void ui.video.play().catch(()=>{});privateShares.hidden=false;
+    // Repeated media-state updates must not recreate srcObject. Doing so can
+    // interrupt an otherwise healthy screen track and cause a blank share.
+    if(ui.track!==track){ui.track=track;ui.video.srcObject=new MediaStream([track]);void ui.video.play().catch(()=>{});}
+    privateShares.hidden=false;
   }
   function avatarFallback(node,name){
     if(!node)return;
@@ -531,6 +534,22 @@
       if(feedback)feedback.textContent='Call cancelled: '+reason;
     }finally{collectingMedia=false;}
   }
+  async function prepareCalleeChannels(){
+    if(!peerConnection||!localMedia)return;
+    const t=peerConnection.getTransceivers();
+    if(t.length<4||t[0].receiver.track.kind!=='audio'||t[1].receiver.track.kind!=='video'||
+       t[2].receiver.track.kind!=='video'||t[3].receiver.track.kind!=='audio')
+      throw Error('Unexpected call media channel order');
+    for(const item of t.slice(0,4))item.direction='sendrecv';
+    videoSender=t[1].sender;screenVideoSender=t[2].sender;screenAudioSender=t[3].sender;
+    await Promise.all([
+      t[0].sender.replaceTrack(localMedia.getAudioTracks()[0]||null),
+      videoSender.replaceTrack(localMedia.getVideoTracks().find(x=>x.readyState==='live'&&x.enabled)||null),
+      screenVideoSender.replaceTrack(shareTrack||null),
+      screenAudioSender.replaceTrack(shareAudioTrack||null)
+    ]);
+    updateScreenUi();
+  }
   function makeConnection(){
     if(peerConnection||!localMedia)return;
     // STUN helps peers connect on different networks. Strict NATs may require a TURN server.
@@ -538,11 +557,16 @@
     peerConnection=pc;
     // A fixed transceiver order on BOTH peers: microphone, camera, screen, tab audio.
     // This prevents switching cameras off when screens start and fixes one-way shares.
-    const mic=localMedia.getAudioTracks()[0],cam=localMedia.getVideoTracks()[0];
-    if(mic)pc.addTrack(mic,localMedia);else pc.addTransceiver('audio',{direction:'sendrecv'});
-    videoSender=cam?pc.addTrack(cam,localMedia):pc.addTransceiver('video',{direction:'sendrecv'}).sender;
-    screenVideoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
-    screenAudioSender=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
+    // Only the caller constructs four offer channels. Chromium may fail to
+    // re-use locally-created answerer transceivers, leading to duplicate
+    // m-lines and a one-way screen share. The callee binds to offer m-lines.
+    if(call.role==='caller'){
+      const mic=localMedia.getAudioTracks()[0],cam=localMedia.getVideoTracks()[0];
+      if(mic)pc.addTrack(mic,localMedia);else pc.addTransceiver('audio',{direction:'sendrecv'});
+      videoSender=cam?pc.addTrack(cam,localMedia):pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+      screenVideoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+      screenAudioSender=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
+    }
     updateScreenUi();
     pc.ontrack=event=>{
       if(!call||peerConnection!==pc)return;
@@ -642,6 +666,7 @@
           if(!peerConnection||peerConnection.signalingState!=='stable')break;
           await peerConnection.setRemoteDescription(item.body);
           await flushIce();
+          await prepareCalleeChannels();
           await peerConnection.setLocalDescription(await peerConnection.createAnswer());
           if(call)sendDescription('answer');
         }else if(item.kind==='answer'&&call?.role==='caller'&&item.body?.type==='answer'){
