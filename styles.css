@@ -931,3 +931,17 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
  #vxsk-call-ringtone-toggle{width:36px;min-width:36px;padding:5px;flex:0 0 auto}
  #vxsk-call-ringtone-toggle span{display:none}
 }
+
+/* VXSK V12.8.15: keep Friends & Requests fully usable even above animated previews. */
+.header[data-friends-open="true"] .nav-hover-panel{display:none!important;pointer-events:none!important}
+.header:has(.nav-friends-panel:not([hidden])) .nav-hover-panel{display:none!important;pointer-events:none!important}
+.nav-friends-panel:not([hidden]){z-index:12010!important;isolation:isolate;pointer-events:auto;overscroll-behavior:contain;touch-action:pan-y}
+.nav-friends-panel .community-entry,.nav-friends-panel .community-entry-actions,.nav-friends-panel button,.nav-friends-panel a{pointer-events:auto}
+.nav-friends-panel button:focus-visible,.nav-friends-panel a:focus-visible{outline:2px solid #a7e2ff;outline-offset:2px}
+/* Ongoing-call controls and clear in-call screen-share state. */
+.vxsk-screen-label{position:absolute;z-index:4;top:12px;left:12px;padding:5px 10px;border-radius:9px;background:#102a40d9;border:1px solid #4de5c4;color:#dffff9;font:800 10px var(--body);letter-spacing:.11em}
+.vxsk-screen-label[hidden]{display:none!important}
+#vxsk-call-share{border-color:#6ed7e6;background:linear-gradient(110deg,#165267,#4434a3)}
+#vxsk-call-share[hidden]{display:none}
+#vxsk-call-video:has(#vxsk-local-video:not([src])){background:#060c19}
+@media(max-width:680px){.nav-friends-panel:not([hidden]){left:10px;right:10px;width:auto}}

@@ -18,8 +18,10 @@
   const preview=document.querySelector('#nav-hover-panel');
   const links=document.querySelectorAll('#nav-links a');
   const desktop=()=>window.matchMedia('(min-width:1271px) and (hover:hover)').matches;
+  const friendsOpen=()=>{const p=document.getElementById('nav-friends-panel');return p && !p.hidden;};
+  const communityNav=document.querySelector('.vxsk-community-nav');
   const show=(href)=>{
-    if(!desktop() || !preview || !previewMap[href])return;
+    if(!desktop() || !preview || !previewMap[href] || friendsOpen() || document.activeElement?.closest('.vxsk-community-nav'))return;
     preview.replaceChildren();
     const inner=document.createElement('div');inner.className='nav-preview-grid shell';
     previewMap[href].forEach(([name,title,desc,img,target])=>{
@@ -34,6 +36,10 @@
     preview.append(inner);preview.hidden=false;
   };
   const hide=()=>{if(preview)preview.hidden=true;};
+  communityNav?.addEventListener('pointerenter',hide);
+  communityNav?.addEventListener('focusin',hide);
+  communityNav?.addEventListener('click',hide);
+  document.addEventListener('vxsk:friends-panel-change',hide);
   links.forEach(a=>{a.addEventListener('mouseenter',()=>show(a.getAttribute('href')));a.addEventListener('focus',()=>show(a.getAttribute('href')));});
   header?.addEventListener('mouseleave',hide);
   header?.addEventListener('focusout',event=>{if(!header.contains(event.relatedTarget))hide();});

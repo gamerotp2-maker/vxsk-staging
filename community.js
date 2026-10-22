@@ -46,7 +46,7 @@
       snapshot=null;peer=null;chat.hidden=true;messages.replaceChildren();
       signedAvatars.clear();renderMiniFriends([]);
       friendsEl.replaceChildren(el('p',user?'Refreshing friends…':'Sign in to manage friends.'));
-      if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');}
+      if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');document.dispatchEvent(new Event('vxsk:friends-panel-change'));}
     }
     return Boolean(user);
   }
@@ -230,15 +230,17 @@
   navFriendsToggle?.addEventListener('click',async()=>{
     navFriendsPanel.hidden=!navFriendsPanel.hidden;
     navFriendsToggle.setAttribute('aria-expanded',String(!navFriendsPanel.hidden));
+    document.querySelector('.header')?.setAttribute('data-friends-open',String(!navFriendsPanel.hidden));
+    document.dispatchEvent(new Event('vxsk:friends-panel-change'));
     if(!navFriendsPanel.hidden)await refreshState();
   });
-  $('nav-friends-close')?.addEventListener('click',()=>{navFriendsPanel.hidden=true;navFriendsToggle.setAttribute('aria-expanded','false');});
+  $('nav-friends-close')?.addEventListener('click',()=>{navFriendsPanel.hidden=true;navFriendsToggle.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');});
   $('nav-friends-refresh')?.addEventListener('click',refreshState);
   $('nav-friends-add')?.addEventListener('click',()=>{showCommunity();search.focus({preventScroll:true});});
   $('nav-friends-manage')?.addEventListener('click',showCommunity);
   document.addEventListener('click',event=>{
     if(navFriendsPanel&&!navFriendsPanel.hidden&&!event.target.closest('.vxsk-community-nav')){
-      navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');
+      navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');
     }
   });
   // Presence reports only a recent visible browser heartbeat. It is never a
@@ -278,6 +280,7 @@
   // Expose only the current accepted-friends snapshot and opt-in avatars to
   // the call UI. Storage permissions still verify every signed URL request.
   window.VXSKCommunity=Object.freeze({
+    refreshFriendAvatar:async (node,id)=>{await refreshState(); const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);if(item?.avatar_path&&node?.isConnected)await addAvatar(node,id,item.avatar_path);},
     friend: id=>(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id)||null,
     addFriendAvatar: async (node,id)=>{
       const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);

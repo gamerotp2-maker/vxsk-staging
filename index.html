@@ -24,13 +24,13 @@
   <script src="supabase-config.js?v=12.8.7" defer></script>
   <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.12-security-fix" defer></script><script src="updates.js" defer></script>
   <script src="match-center-live.js" defer></script>
-  <script src="vxsk-experience.js" defer></script>
+  <script src="vxsk-experience.js?v=12.8.15-friends-nav" defer></script>
   <script src="season-showcase.js?v=12.8.9" defer></script>
   <script src="chapter-transitions.js?v=12.8.7" defer></script>
-  <script src="community.js?v=12.8.14" defer></script>
+  <script src="community.js?v=12.8.15-avatar-nav" defer></script>
   <script src="group-chat.js?v=12.8.14" defer></script>
   <script src="ui-polish.js?v=12.8.8" defer></script>
-  <script src="friend-calls.js?v=12.8.14-ringtone-minimize-voice" defer></script>
+  <script src="friend-calls.js?v=12.8.15-connection-screen-rings" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -41,7 +41,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.14</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">STAGING · V12.8.15</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -57,7 +57,7 @@
         <form id="nav-player-search-form" class="nav-player-search" role="search"><label for="nav-player-search" class="sr-only">Search VXSK games or players</label><input id="nav-player-search" type="search" maxlength="30" autocomplete="off" placeholder="Search VXSK…"/><button type="submit" aria-label="Search games and players" title="Search">⌕</button></form>
         <button id="nav-friends-toggle" class="nav-community-mini" type="button" aria-expanded="false" aria-controls="nav-friends-panel" aria-label="Open friends and requests" title="Friends and requests">♧<span id="nav-friend-count" class="nav-friend-count" hidden></span></button>
         <button id="nav-add-friend" class="nav-community-mini" type="button" aria-label="Search and add a friend" title="Add friend">＋</button>
-        <div id="nav-friends-panel" class="nav-friends-panel" hidden><div class="nav-friends-top"><strong>FRIENDS & REQUESTS</strong><button id="nav-friends-close" type="button" aria-label="Close friends panel">×</button></div><p class="nav-friends-helper">Only accepted friends can DM. Online status is shown only when shared.</p><div id="nav-friends-entries" class="nav-friends-entries" aria-live="polite"><p>Sign in to see your friends.</p></div><div class="nav-friends-footer"><button id="nav-friends-refresh" type="button">REFRESH ↻</button><button id="nav-friends-add" type="button">ADD FRIEND ＋</button><a href="#community" id="nav-friends-manage">MORE ↗</a></div></div>
+        <div id="nav-friends-panel" class="nav-friends-panel" hidden><div class="nav-friends-top"><strong>FRIENDS & REQUESTS</strong><button id="nav-friends-close" type="button" aria-label="Close friends panel">×</button></div><p class="nav-friends-helper">Only accepted friends can DM. Avatars appear when players opt in to photo sharing; online status is also optional.</p><div id="nav-friends-entries" class="nav-friends-entries" aria-live="polite"><p>Sign in to see your friends.</p></div><div class="nav-friends-footer"><button id="nav-friends-refresh" type="button">REFRESH ↻</button><button id="nav-friends-add" type="button">ADD FRIEND ＋</button><a href="#community" id="nav-friends-manage">MORE ↗</a></div></div>
       </div>
       <button type="button" id="vxsk-call-ringtone-toggle" class="vxsk-call-ring-toggle" aria-label="Enable incoming call ringtone" aria-pressed="false" title="Enable incoming call ringtone">🔔 <span>RING OFF</span></button>
       <div id="vxsk-updates-widget" class="vxsk-updates-widget"><button type="button" id="vxsk-updates-toggle" class="vxsk-updates-toggle" aria-controls="vxsk-updates-panel" aria-expanded="false" aria-label="View VXSK announcements">✦ <span>UPDATES</span><b id="vxsk-updates-count" hidden>0</b></button><div id="vxsk-updates-panel" class="vxsk-updates-panel" hidden><strong>VXSK / NEW ANNOUNCEMENTS</strong><div id="vxsk-updates-list"><p class="updates-empty">Checking latest public announcements…</p></div><a href="#match-center">SEE ALL ANNOUNCEMENTS ↗</a></div></div>
@@ -289,10 +289,10 @@
           <span class="vxsk-voice-divider" aria-hidden="true">⇄</span>
           <div class="vxsk-voice-user"><span class="vxsk-voice-avatar" id="vxsk-call-peer-avatar">F</span><strong id="vxsk-call-peer-name">FRIEND</strong><small>FRIEND MICROPHONE</small></div>
         </div>
-        <div class="vxsk-call-video" id="vxsk-call-video" hidden><video id="vxsk-remote-video" autoplay playsinline muted aria-label="Friend video"></video><video id="vxsk-local-video" autoplay playsinline muted aria-label="Your camera preview"></video></div>
+        <div class="vxsk-call-video" id="vxsk-call-video" hidden><span id="vxsk-call-share-label" class="vxsk-screen-label" hidden>SCREEN SHARE</span><video id="vxsk-remote-video" autoplay playsinline muted aria-label="Friend video"></video><video id="vxsk-local-video" autoplay playsinline muted aria-label="Your camera preview"></video></div>
         <audio id="vxsk-remote-audio" autoplay></audio>
-        <div id="vxsk-call-actions" class="vxsk-call-actions"><button type="button" id="vxsk-call-accept" hidden>ACCEPT CALL</button><button type="button" id="vxsk-call-decline" hidden>DECLINE</button><button type="button" id="vxsk-call-play-media" hidden>PLAY FRIEND SOUND</button><button type="button" id="vxsk-call-mute" hidden>MUTE MICROPHONE</button><button type="button" id="vxsk-call-camera" hidden>CAMERA OFF</button><button type="button" id="vxsk-call-hangup" hidden>END CALL</button></div>
-        <p class="auth-help">X minimizes; use END CALL to disconnect. Audio/video are live and not recorded by VXSK. Speaking rings show microphone activity locally, not recordings. To hear incoming ringtones, enable sound in the header and allow your browser to play sound.</p>
+        <div id="vxsk-call-actions" class="vxsk-call-actions"><button type="button" id="vxsk-call-accept" hidden>ACCEPT CALL</button><button type="button" id="vxsk-call-decline" hidden>DECLINE</button><button type="button" id="vxsk-call-play-media" hidden>PLAY FRIEND SOUND</button><button type="button" id="vxsk-call-mute" hidden>MUTE MICROPHONE</button><button type="button" id="vxsk-call-camera" hidden>CAMERA OFF</button><button type="button" id="vxsk-call-share" hidden>SHARE SCREEN</button><button type="button" id="vxsk-call-hangup" hidden>END CALL</button></div>
+        <p class="auth-help">X minimizes; only END CALL hangs up. Use SHARE SCREEN to choose a window or screen; your browser will ask first. Calls are never recorded by VXSK. Ring volume and background playback depend on browser and device settings.</p>
       </dialog>
   <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title">
     <div class="account-shell">
