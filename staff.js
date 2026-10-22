@@ -44,7 +44,6 @@
     $('#reject').addEventListener('click',()=>review('rejected'));
     $('#owner-delete-registration')?.addEventListener('click',deleteSelectedRegistration);
     $('#staff-inbox-regular')?.addEventListener('click',()=>switchInbox('regular'));
-    $('#staff-inbox-opponents')?.addEventListener('click',()=>switchInbox('opponents'));
     $('#note-form').addEventListener('submit',saveNote);
     await loadRows();
     window.dispatchEvent(new CustomEvent('vxsk:staff-ready',{detail:{role:myRole}}));

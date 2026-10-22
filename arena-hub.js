@@ -1,4 +1,4 @@
-/* VXSK ARENA HUB V12.8.18 — staging only. No secrets, privileged keys or public identities. */
+/* VXSK ARENA HUB V12.8.21 — staging only. Owner can select unpublished matches privately. */
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
@@ -25,7 +25,6 @@
   function show(tab){
     document.querySelectorAll('[data-arena-tab]').forEach(b=>{const on=b.dataset.arenaTab===tab;b.classList.toggle('selected',on);b.setAttribute('aria-selected',String(on));});
     document.querySelectorAll('[data-arena-panel]').forEach(p=>{p.hidden=p.dataset.arenaPanel!==tab;});
-    if(tab==='referee')void renderReferee();
   }
   document.querySelectorAll('[data-arena-tab]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.arenaTab)));
   function renderMatches(){
@@ -131,45 +130,17 @@
       if(!n.seen)c.append(makeButton('MARK READ ✓',async()=>{const {error}=await state.api.from('vxsk_hub_notifications').update({seen:true}).eq('id',n.id).eq('user_id',state.user.id);if(!handleError(error,'mark read'))await loadPersonal();}));box.append(c);
     }
   }
-  async function renderReferee(){
-    const gate=$('arena-referee-gate');const form=$('arena-referee-form');const queue=$('arena-report-queue');
-    form.hidden=!state.referee;queue.replaceChildren();
-    $('arena-editor-workspace').hidden=!state.editor;
-    $('arena-owner-tools').hidden=!state.owner;
-    const selectable = state.matches.filter(m=>m.state!=='cancelled');
-    for(const id of ['arena-assign-match']){const drop=$(id);drop.replaceChildren();for(const m of selectable){const option=el('option',m.game+' · '+m.side_a+' vs '+m.side_b);option.value=m.id;drop.append(option);}}
-    if(!state.referee){gate.textContent='Verified VXSK staff with authenticator 2FA only. You can sign in on the main website.';queue.append(el('p','Referee reports are private.'));return;}
-    gate.textContent=state.owner?'OWNER · You can review and approve reports.':'VERIFIED REFEREE · You can submit proposed scores.';
-    const matchSelect=$('arena-report-match');matchSelect.replaceChildren();
-    const options=state.matches.filter(m=>m.state!=='cancelled');
-    for(const m of options){const opt=el('option',m.game+' · '+m.side_a+' vs '+m.side_b);opt.value=m.id;matchSelect.append(opt);}
-    if(!options.length){form.hidden=true;queue.append(empty('Staff must publish matches before referees can report scores.'));}
-    const {data,error}=await state.api.from('vxsk_hub_match_reports').select('id,match_id,proposed_score_a,proposed_score_b,state,created_at,notes').order('created_at',{ascending:false}).limit(50);
-    if(handleError(error,'referee queue'))return;
-    for(const r of data||[]){const m=state.matches.find(m=>m.id===r.match_id);const c=card(m?m.side_a+' vs '+m.side_b:'Unpublished match','',r.state,`${r.proposed_score_a} : ${r.proposed_score_b} · ${dateText(r.created_at)}`);if(r.notes)c.append(el('p',r.notes));
-      if(state.owner&&r.state==='pending'){
-        c.append(makeButton('APPROVE & PUBLISH',async()=>{if(!confirm('Publish this report and update the official match score?'))return;if(await rpc('vxsk_hub_owner_decide_report',{p_report:r.id,p_approve:true})){await loadPublic();await renderReferee();info('Match score published by owner.','ok');}}));
-        c.append(makeButton('REJECT',async()=>{if(!confirm('Reject this referee report?'))return;if(await rpc('vxsk_hub_owner_decide_report',{p_report:r.id,p_approve:false})){await renderReferee();info('Report rejected by owner.','ok');}}));
-      }
-      queue.append(c);
-    }
-    if(!queue.children.length)queue.append(empty('No referee reports submitted yet.'));
-  }
   async function loadPublic(){
-    const [events,matches,teams,announcements] = await Promise.all([
+    const [events,matches,teams] = await Promise.all([
       state.api.from('vxsk_hub_events').select('id,title,game,starts_at,details,published').eq('published',true).order('starts_at',{ascending:true}).limit(80),
       state.api.from('vxsk_hub_matches').select('id,event_id,game,round_name,bracket_slot,side_a,side_b,starts_at,state,score_a,score_b,published').eq('published',true).limit(120),
-      state.api.from('vxsk_hub_teams').select('id,captain_id,name,game,description,published').eq('published',true).limit(60),
-      state.api.from('match_center_posts').select('title,body,created_at').eq('kind','announcement').eq('published',true).order('created_at',{ascending:false}).limit(8)
+      state.api.from('vxsk_hub_teams').select('id,captain_id,name,game,description,published').eq('published',true).limit(60)
     ]);
     for(const response of [events,matches,teams])if(handleError(response.error,'public feed'))break;
     state.events=events.data||[];state.matches=matches.data||[];state.teams=teams.data||[];
     $('arena-events-count').textContent=state.events.length;
     $('arena-matches-count').textContent=state.matches.length;
     $('arena-teams-count').textContent=state.teams.length;
-    const box=$('arena-announcements');box.replaceChildren();
-    for(const a of announcements.data||[]){const item=el('p');item.append(el('strong',a.title+' · '),el('span',a.body||''));box.append(item);}
-    if(!box.children.length)box.append(el('p','No official announcements published yet.'));
     renderMatches();renderCalendar();renderBrackets();void renderTeams();
   }
   async function loadPersonal(){
@@ -196,7 +167,7 @@
     if(!state.api){state.api=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});}
     const {data,error}=await state.api.auth.getUser();state.user=error?null:data?.user||null;
     $('arena-login').textContent=state.user?'ACCOUNT CONNECTED ✓':'SIGN IN ↗';
-    if(state.user){const [referee,owner,editor]=await Promise.all([state.api.rpc('vxsk_hub_referee'),state.api.rpc('vxsk_hub_owner'),state.api.rpc('vxsk_hub_editor')]);state.referee=Boolean(referee.data&&!referee.error);state.owner=Boolean(owner.data&&!owner.error);state.editor=Boolean(editor.data&&!editor.error);}else{state.referee=false;state.owner=false;state.editor=false;state.badges=[];state.notices=[];}
+    if(!state.user){state.badges=[];state.notices=[];}
     await loadPublic();await loadPersonal();
     info(state.user?'ARENA HUB CONNECTED · Logged in to VXSK-STAGING':'Viewing public Arena Hub. Sign in on VXSK to use personal features.','ok');
   }
@@ -218,37 +189,6 @@
     const ok=await rpc('vxsk_hub_report',{p_category:f.elements.reason.value,p_details:f.elements.details.value});
     if(ok){f.reset();info('Your private report was submitted to the VXSK staff queue.','ok');}
     else info('Report not submitted. Check the length and hourly limit.','error');
-  });
-  $('arena-referee-form').addEventListener('submit',async e=>{
-    e.preventDefault();const f=e.currentTarget;if(!state.referee){info('Referee access required.','error');return;}
-    const ok=await rpc('vxsk_hub_referee_report',{p_match:f.elements['report-match'].value,p_a:Number(f.elements['report-a'].value),p_b:Number(f.elements['report-b'].value),p_notes:f.elements['report-notes'].value});
-    if(ok){f.reset();await renderReferee();info('Report submitted. Only the owner can approve and publish it.','ok');}
-  });
-  // Writes rely on database RLS as well as the verified editor/owner role.
-  $('arena-event-form').addEventListener('submit',async e=>{
-    e.preventDefault();if(!state.editor)return;const f=e.currentTarget;
-    const time=f.elements['event-date'].value;
-    const {error}=await state.api.from('vxsk_hub_events').insert({title:f.elements['event-title'].value.trim(),game:f.elements['event-game'].value,
-      starts_at:new Date(time+':00+01:00').toISOString(),details:f.elements['event-details'].value.trim(),published:f.elements['event-publish'].checked});
-    if(!handleError(error,'event create')){f.reset();await loadPublic();info('Event date saved in STAGING.','ok');}
-  });
-  $('arena-match-form').addEventListener('submit',async e=>{
-    e.preventDefault();if(!state.editor)return;const f=e.currentTarget;
-    const time=f.elements['match-date'].value;
-    const {error}=await state.api.from('vxsk_hub_matches').insert({game:f.elements['match-game'].value,round_name:f.elements['match-round'].value.trim(),
-      bracket_slot:Number(f.elements['match-slot'].value),side_a:f.elements['match-a'].value.trim(),side_b:f.elements['match-b'].value.trim(),
-      starts_at:time?new Date(time+':00+01:00').toISOString():null,published:f.elements['match-publish'].checked});
-    if(!handleError(error,'match create')){f.reset();await loadPublic();await renderReferee();info('Bracket match saved in STAGING.','ok');}
-  });
-  $('arena-assign-form').addEventListener('submit',async e=>{
-    e.preventDefault();if(!state.owner)return;const f=e.currentTarget;
-    const ok=await rpc('vxsk_hub_owner_assign_player',{p_match:f.elements['assign-match'].value,p_player:f.elements['assign-user'].value.trim(),p_side:f.elements['assign-side'].value});
-    if(ok){f.reset();info('Player assigned and notified.','ok');}else info('Assignment not allowed. Verify UUID and match.','error');
-  });
-  $('arena-badge-form').addEventListener('submit',async e=>{
-    e.preventDefault();if(!state.owner)return;const f=e.currentTarget;
-    const ok=await rpc('vxsk_hub_award_badge',{p_player:f.elements['badge-user'].value.trim(),p_badge:f.elements['badge-type'].value});
-    if(ok){f.reset();info('Badge awarded.','ok');}else info('Unable to award badge. Verify user UUID.','error');
   });
   $('arena-low-lag').addEventListener('click',()=>{
     const next=!(storageGet('vxsk-low-lag')==='1');storageSet('vxsk-low-lag',next?'1':'0');document.body.classList.toggle('vxsk-low-lag',next);$('arena-low-lag').textContent=next?'TURN OFF LOW-LAG MODE':'TURN ON LOW-LAG MODE';

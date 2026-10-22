@@ -1,0 +1,43 @@
+/* VXSK V12.8.21 | Single-page staff workspace. Changes layout only; rights stay server-side. */
+.staff-command-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:25px 0 10px}
+.staff-command-nav button{text-align:center;border-radius:11px;border:1px solid #555074;background:#131930;min-height:58px;font-size:11px;padding:12px;letter-spacing:.025em}
+.staff-command-nav button:hover,.staff-command-nav button:focus-visible{border-color:#c5a3ff}
+.staff-command-nav button.is-active{background:linear-gradient(120deg,#6640ae,#403a9a);border-color:#c3a9ff;box-shadow:0 0 0 1px #8459bf55}
+.staff-command-nav button span{display:inline-flex;padding:2px 5px;background:#131831;border-radius:6px;margin-left:3px}
+.staff-command-explainer{font-size:12px;color:#bac2de;margin:0 0 22px}
+[data-staff-view]{animation:staff-enter .18s ease both;min-width:0}
+@keyframes staff-enter{from{opacity:.6;transform:translateY(3px)}to{opacity:1;transform:none}}
+[data-staff-view] .stats{margin-top:8px}
+[data-staff-view] .content-editor{margin-top:5px;padding-top:0;border-top:0}
+[data-staff-view] .opponent-inbox{margin-top:10px}
+.command-section-title{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:14px 0 24px;flex-wrap:wrap}
+.command-section-title h2{font:900 clamp(31px,4vw,54px)/1 'Barlow Condensed',sans-serif;letter-spacing:.04em;margin:8px 0}
+.command-section-title em{color:#bc99ff;font-style:normal}
+.command-section-title p{font-size:12px;color:#b9c1e1;max-width:700px;margin:7px 0}
+.staff-arena-links{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:18px}
+.staff-arena-links span{font-size:11px;color:#bfb7e5}
+.staff-arena-block{background:#0e132ce8;border:1px solid #3b406b;border-radius:14px;padding:20px;margin:18px 0}
+.staff-arena-block h3{font:900 24px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#d9c2ff;margin:0 0 5px}
+.staff-arena-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.staff-arena-card{background:#161a37;border:1px solid #484568;border-radius:11px;padding:19px;min-width:0}
+.staff-arena-card h4{font:900 20px 'Barlow Condensed',sans-serif;margin:0 0 14px;letter-spacing:.06em;color:#e0d0ff}
+.staff-arena-form{display:grid;gap:13px}
+.staff-arena-form label{display:grid;gap:6px;font-size:11px;letter-spacing:.06em;font-weight:700;color:#c4c8e2}
+.staff-arena-form input,.staff-arena-form select,.staff-arena-form textarea{border-radius:8px;background:#0b122c}
+.staff-arena-form button{border-radius:8px;background:#7350bc;color:#fff}
+.staff-arena-form button:hover{background:#8663ca}
+.staff-arena-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.staff-arena-checkbox{display:flex!important;gap:8px!important;align-items:center!important;cursor:pointer}
+.staff-arena-checkbox input{width:18px;min-width:18px;height:18px;accent-color:#956cdd}
+.staff-arena-list{display:grid;gap:10px;max-height:560px;overflow:auto}
+.staff-arena-item{padding:13px;background:#0e1530;border:1px solid #40456a;border-radius:9px;overflow-wrap:anywhere}
+.staff-arena-item strong,.staff-arena-item small{display:block}
+.staff-arena-item small{font-size:11px;color:#b5bde1;margin-top:5px}
+.staff-arena-item p{font-size:12px;color:#c4c8df;white-space:pre-wrap}
+.staff-arena-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.staff-arena-actions button{font-size:10px;border-radius:8px}
+.staff-arena-summary{margin-top:15px}
+@media(max-width:1000px){.staff-command-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.staff-arena-grid{grid-template-columns:1fr}.staff-arena-block{padding:13px}.staff-arena-card{padding:13px}}
+@media(max-width:450px){.staff-command-nav{grid-template-columns:1fr}.staff-arena-pair{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){[data-staff-view]{animation:none}}
