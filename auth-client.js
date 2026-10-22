@@ -449,7 +449,64 @@
     if (error?.message?.includes('Email address not authorized') || error?.code==='email_address_not_authorized') return 'Email sending is not configured for new players yet. VXSK admin: configure Supabase custom SMTP.';
     if (/invalid.*(totp|factor|code)|otp.*invalid|challenge.*failed/i.test(error?.message || '')) return 'That 6-digit code was not accepted. Check the authenticator app clock and try again.';
     if (error?.message?.includes('Auth session missing')) return 'Your session expired. Please sign in again.';
+    if (error?.code === 'mfa_factor_name_conflict') return 'An MFA setup with this name already exists. Use CHECK 2FA STATUS and RESET UNFINISHED SETUP if available.';
+    if (error?.code === 'too_many_enrolled_mfa_factors') return 'Too many MFA factors are registered. Check your existing factors before enabling another.';
+    if (error?.code === 'mfa_verified_factor_exists') return 'An MFA factor is already enabled. Check your 2FA status before enrolling again.';
+    if (error?.code === 'insufficient_aal') return 'Supabase requires a fully verified 2FA session for this action. Sign out and sign back in with your authenticator first.';
+    if (error?.code === 'mfa_totp_enroll_not_enabled') return 'Authenticator enrollment is disabled in Supabase-STAGING Auth settings.';
+    if (error?.code === 'mfa_factor_not_found') return 'That authenticator factor no longer exists. Refresh your 2FA status.';
+    if (error?.code === 'mfa_challenge_expired') return 'That verification attempt expired. Request a fresh authenticator code.';
+    if (error?.code === 'mfa_verification_failed') return 'The 6-digit authenticator code was rejected. Check the app clock and try a fresh code.';
+    // Show provider error code for diagnostics, without rendering sensitive stack traces.
+    const safeCode=String(error?.code||'').replace(/[^a-zA-Z0-9_]/g,'').slice(0,60);
+    if(safeCode)return 'Authentication request failed ('+safeCode+'). Please share only this error code with VXSK support; never share OTPs.';
     return defaultMessage;
+  }
+
+  // These checks use Supabase Auth as the source of truth, not the site's badge.
+  // Never log factors, TOTP secrets or verification codes.
+  function mfaFactorsFrom(data) {
+    const all=Array.isArray(data?.all) ? data.all : [
+      ...(data?.totp||[]).map(f=>({...f,factor_type:'totp'})),
+      ...(data?.phone||[]).map(f=>({...f,factor_type:'phone'}))
+    ];
+    const uniq=new Map();
+    all.forEach(f=>{if(f?.id)uniq.set(f.id,f);});
+    return [...uniq.values()];
+  }
+  async function inspectMfa() {
+    const [listed,level]=await Promise.all([
+      api.auth.mfa.listFactors(),api.auth.mfa.getAuthenticatorAssuranceLevel()
+    ]);
+    return {factors:mfaFactorsFrom(assert(listed)),level:assert(level)};
+  }
+  let unfinishedMfa = [];
+  function renderMfaState(state) {
+    const verified=state.factors.filter(f=>f.factor_type==='totp' && f.status==='verified');
+    const unfinished=state.factors.filter(f=>f.factor_type==='totp' && f.status==='unverified');
+    // If a user has multiple verified factors, never remove one implicitly.
+    verifiedFactor=verified.length===1?verified[0]:null;
+    unfinishedMfa=unfinished.filter(f=>f.friendly_name==='VXSK-EVENTS');
+    const badge=$('#mfa-badge'), enable=$('#mfa-start'), disable=$('#mfa-remove');
+    if(badge){badge.textContent=verified.length?'2FA ENABLED':'2FA OFF';badge.classList.toggle('on',verified.length>0);}
+    if(enable)enable.hidden=verified.length>0;
+    if(disable)disable.hidden=verified.length!==1;
+    const reset=$('#mfa-reset-pending');
+    if(reset)reset.hidden=unfinishedMfa.length===0 || verified.length>0;
+    const badge2=$('#profile-mfa-status');
+    if(badge2){badge2.textContent=verified.length?'◆ 2FA PROTECTED':'2FA NOT ENABLED';badge2.classList.toggle('on',verified.length>0);}
+    if($('#nav-verified'))$('#nav-verified').hidden=!verified.length;
+    const detail=$('#mfa-status-detail');
+    if(detail){
+      detail.textContent=verified.length>1
+        ? 'Multiple verified authenticators exist. For safety, factor removal is disabled here. Contact VXSK support.'
+        : verified.length===1
+          ? 'One verified authenticator is active. Disabling it requires a NEW 6-digit code.'
+          : unfinished.length
+            ? 'No verified authenticator. An unfinished setup exists. Use RESET UNFINISHED SETUP to clear only the unverified VXSK attempt.'
+            : 'No verified authenticator is linked. Use ENABLE 2FA to scan a new QR code.';
+    }
+    return {verifiedCount:verified.length,unfinishedCount:unfinished.length};
   }
   async function run(button, job) {
     if (busy || !configured()) return;
@@ -500,19 +557,10 @@
       if (!dialog.open) dialog.showModal();
       return;
     }
-    const factors = assert(await api.auth.mfa.listFactors());
-    verifiedFactor = factors.totp?.find(f=>f.status === 'verified') || null;
-    $('#mfa-badge').textContent = verifiedFactor ? '2FA ENABLED' : '2FA OFF';
-    $('#mfa-badge').classList.toggle('on',Boolean(verifiedFactor));
-    $('#mfa-start').hidden = Boolean(verifiedFactor);
-    $('#mfa-remove').hidden = !verifiedFactor;
-    if($('#profile-mfa-status')) {
-      $('#profile-mfa-status').textContent=verifiedFactor?'◆ 2FA PROTECTED':'2FA NOT ENABLED';
-      $('#profile-mfa-status').classList.toggle('on',Boolean(verifiedFactor));
-    }
+    const factorList=assert(await api.auth.mfa.listFactors());
+    renderMfaState({factors:mfaFactorsFrom(factorList),level});
     if(navChip)navChip.hidden=false;
     if(navAvatarFallback)navAvatarFallback.hidden=false;
-    if($('#nav-verified'))$('#nav-verified').hidden=!verifiedFactor;
     displayNickname();
     if($('#remember-account-switch'))$('#remember-account-switch').checked=rememberedAccounts().some(x=>x.email===currentUser.email?.toLowerCase());
     await showAvatar();
@@ -639,13 +687,40 @@
     await showAvatar();
     notify('Avatar removed successfully.','success');
   }));
+  $('#mfa-check')?.addEventListener('click',e=>run(e.currentTarget,async()=>{
+    if(!currentUser||mfaRequired)throw {publicMessage:'Complete sign in first.'};
+    const state=await inspectMfa();
+    const info=renderMfaState(state);
+    const text=info.verifiedCount ? 'Supabase confirms your 2FA factor is still VERIFIED.' :
+      info.unfinishedCount ? '2FA is not verified. An unfinished setup exists; see RESET UNFINISHED SETUP.' :
+      'Supabase confirms no verified 2FA factor is currently linked to this account.';
+    notify(text, info.verifiedCount?'success':'');
+  }));
+  $('#mfa-reset-pending')?.addEventListener('click',e=>run(e.currentTarget,async()=>{
+    if(!currentUser||mfaRequired)throw {publicMessage:'Sign in first.'};
+    const state=await inspectMfa();
+    if(state.factors.some(f=>f.factor_type==='totp'&&f.status==='verified'))
+      throw {publicMessage:'A verified authenticator is present. It will NOT be removed by this reset.'};
+    const candidates=state.factors.filter(f=>f.factor_type==='totp' && f.status==='unverified' && f.friendly_name==='VXSK-EVENTS');
+    if(!candidates.length)throw {publicMessage:'No unfinished VXSK setup found. Check status again.'};
+    // Only an explicitly requested cleanup of unverified VXSK attempts.
+    for(const factor of candidates)assert(await api.auth.mfa.unenroll({factorId:factor.id}));
+    pendingFactor=null;
+    renderMfaState(await inspectMfa());
+    notify('Unfinished (unverified) VXSK authenticator setup cleared. You can now enable 2FA again.','success');
+  }));
   $('#mfa-start').addEventListener('click',e=>run(e.currentTarget,async()=>{
-    if(mfaRequired) throw {publicMessage:'Complete sign in first.'};
+    if(mfaRequired||!currentUser)throw {publicMessage:'Complete sign in first.'};
+    const state=await inspectMfa();
+    const flags=renderMfaState(state);
+    if(flags.verifiedCount)throw {publicMessage:'2FA is already active on this account. No second setup started.'};
+    if(flags.unfinishedCount)throw {publicMessage:'A previous 2FA setup did not finish. Click RESET UNFINISHED SETUP first, then try again.'};
     const info=assert(await api.auth.mfa.enroll({factorType:'totp',friendlyName:'VXSK-EVENTS',issuer:'VXSK-EVENTS'}));
     pendingFactor=info.id;
+    if(!info.totp?.qr_code)throw {publicMessage:'Supabase did not return a QR code; cancel and retry.'};
     $('#mfa-qr').src=info.totp.qr_code;
     view('mfa-setup');
-    notify('Scan the QR code privately and enter the 6-digit code to activate 2FA.','success');
+    notify('Scan the new QR code privately. Never reuse an old deleted authenticator QR code.','success');
   }));
   $('#mfa-setup-form').addEventListener('submit',e=>{
     e.preventDefault();const form=e.currentTarget;
@@ -657,10 +732,12 @@
       notify('Two-step verification is ON. Future sign-ins will require your authenticator code.','success');
     });
   });
-  $('#mfa-cancel').addEventListener('click',async()=>{
-    if(pendingFactor){ await api?.auth.mfa.unenroll({factorId:pendingFactor}).catch(()=>{}); pendingFactor=null; }
+  $('#mfa-cancel').addEventListener('click',e=>run(e.currentTarget,async()=>{
+    if(pendingFactor){assert(await api.auth.mfa.unenroll({factorId:pendingFactor}));pendingFactor=null;}
     $('#mfa-qr').removeAttribute('src');view('profile');
-  });
+    renderMfaState(await inspectMfa());
+    notify('Unverified 2FA setup canceled. Existing verified factors were not changed.','success');
+  }));
   $('#mfa-login-form').addEventListener('submit',e=>{
     e.preventDefault(); const form=e.currentTarget;
     if(!form.reportValidity()) return;
@@ -687,14 +764,21 @@
       if(mfaRequired||!currentUser||!verifiedFactor)throw {publicMessage:'Sign in with your 2FA account first.'};
       const code=$('#mfa-remove-code').value.trim();
       if(!/^[0-9]{6}$/.test(code))throw {publicMessage:'Enter a valid 6-digit code.'};
-      const factorId=verifiedFactor.id;
+      const state=await inspectMfa();
+      const active=state.factors.filter(f=>f.factor_type==='totp'&&f.status==='verified');
+      if(active.length!==1 || active[0].id!==verifiedFactor.id)
+        throw {publicMessage:'Authenticator status changed. Nothing was removed. Use CHECK 2FA STATUS before retrying.'};
+      const factorId=active[0].id;
+      // Challenge-and-verify must succeed with the freshly entered code.
       assert(await api.auth.mfa.challengeAndVerify({factorId,code}));
-      form.reset();
+      // Recheck assurance level after challenge rather than trusting an old aal2 JWT.
+      const freshLevel=assert(await api.auth.mfa.getAuthenticatorAssuranceLevel());
+      if(freshLevel.currentLevel!=='aal2')throw {publicMessage:'Authenticator verification did not reach AAL2. Nothing was removed.'};
       assert(await api.auth.mfa.unenroll({factorId}));
-      // The provider might cache the old aal2 level briefly; refresh it.
-      await api.auth.refreshSession();
+      form.reset();pendingFactor=null;
+      assert(await api.auth.refreshSession());
       view('profile');await refresh();
-      notify('The code was verified. Two-step verification is now disabled.','success');
+      notify('2FA disabled after your NEW 6-digit code was accepted. Enable it again before using Staff Panel.','success');
     });
   });
   // Optional local shortcuts: only account labels + emails, never sessions or credentials.

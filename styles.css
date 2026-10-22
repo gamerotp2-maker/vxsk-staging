@@ -876,3 +876,7 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .nav-friends-panel .community-entry-actions{flex-wrap:wrap;gap:4px}
 @media(max-width:680px){.vxsk-call-panel{max-width:calc(100vw - 14px);max-height:95dvh;border-radius:14px;padding:16px}.vxsk-call-actions button{flex:1 1 auto}}
 @media(prefers-reduced-motion:reduce){.vxsk-call-panel,.saved-account{transition:none!important;animation:none!important}}
+
+/* VXSK V12.8.13: explicit friend audio playback fallback */
+#vxsk-call-play-media{border-color:#61cba4;background:linear-gradient(110deg,#155c63,#245eac)}
+#vxsk-call-play-media[hidden]{display:none}

@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING: Real WebRTC audio/video calls between accepted friends.
+// VXSK STAGING V12.8.13: Audio maintained; improved video ICE and media playback.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -12,9 +12,11 @@
   const hangupButton = $('vxsk-call-hangup'), closeButton = $('vxsk-call-close');
   const mediaBox = $('vxsk-call-video'), remoteVideo = $('vxsk-remote-video');
   const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio');
+  const playMediaButton=$('vxsk-call-play-media');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
   let collectingMedia=false, updating=false, checkingInbox=false;
   let signaling=Promise.resolve(), pendingIce=[], myId=null;
+  let videoDescriptionQueued=false, videoIceBuffer=[], playNeedsGesture=false;
 
   function api(){return window.VXSKAuth?.client || null;}
   function setStatus(message){status.textContent=message;}
@@ -33,6 +35,7 @@
     muteButton.hidden=call.state!=='accepted'||!localMedia;
     cameraButton.hidden=call.medium!=='video'||call.state!=='accepted'||!localMedia;
     mediaBox.hidden=call.medium!=='video'||!localMedia;
+    if(playMediaButton)playMediaButton.hidden=call.state!=='accepted'||!playNeedsGesture;
   }
   function stopMedia(){
     try{peerConnection?.close();}catch(_){} peerConnection=null;
@@ -40,6 +43,8 @@
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
     localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;
     pendingIce=[];signaling=Promise.resolve();lastSignal=0;collectingMedia=false;
+    videoDescriptionQueued=false;videoIceBuffer=[];playNeedsGesture=false;
+    if(playMediaButton)playMediaButton.hidden=true;
   }
   function dismiss(message=''){
     stopMedia();call=null;
@@ -75,6 +80,48 @@
       if(!ok)throw Error('Call signaling permission denied.');
     }).catch(e=>{ if(call?.id===id)setStatus(e.message||'Call connection failed.'); });
   }
+  // Video uses complete (or time-bounded) ICE gathering for the initial SDP.
+  // This reduces candidate/SDP ordering races when signaling is polled through RPC.
+  async function waitForVideoIce(pc){
+    if(pc.iceGatheringState==='complete')return;
+    await new Promise(resolve=>{
+      let done=false;
+      const finish=()=>{
+        if(done)return;done=true;
+        clearTimeout(timer);
+        pc.removeEventListener('icegatheringstatechange',check);
+        resolve();
+      };
+      const check=()=>{if(pc.iceGatheringState==='complete'||pc.signalingState==='closed')finish();};
+      const timer=setTimeout(finish,10000);
+      pc.addEventListener('icegatheringstatechange',check);
+      check();
+    });
+  }
+  function sendDescription(kind){
+    const pc=peerConnection;
+    if(!pc?.localDescription)return;
+    // pc.localDescription may contain host/STUN candidates that weren't present
+    // in the original offer/answer returned by createOffer/createAnswer.
+    queueSignal(kind,{type:kind,sdp:pc.localDescription.sdp});
+    if(call?.medium==='video'){
+      videoDescriptionQueued=true;
+      // Candidates gathered while waiting are already embedded in localDescription.
+      // Only send subsequent trickle candidates if gathering had to time out.
+      videoIceBuffer=[];
+    }
+  }
+  function showMediaPlaybackNeeded(){
+    if(!call)return;
+    playNeedsGesture=true;
+    if(playMediaButton)playMediaButton.hidden=false;
+    setStatus('Connected, but your browser blocked friend audio. Click PLAY FRIEND SOUND.');
+  }
+  async function tryPlayMedia(element){
+    if(!element?.srcObject)return;
+    try{await element.play();if(element===remoteAudio){playNeedsGesture=false;if(playMediaButton)playMediaButton.hidden=true;}}
+    catch(e){if(e?.name==='NotAllowedError')showMediaPlaybackNeeded();else setStatus('Friend media received, but your browser could not play it.');}
+  }
   async function startMedia(){
     if(!call||localMedia||collectingMedia)return;
     collectingMedia=true;
@@ -82,11 +129,12 @@
       if(!navigator.mediaDevices?.getUserMedia||typeof RTCPeerConnection==='undefined')
         throw Error('Your browser does not support secure audio/video calling.');
       setStatus('Asking your browser for '+(call.medium==='video'?'camera and microphone':'microphone')+' permission…');
+      const startedCallId=call.id;
       const stream=await navigator.mediaDevices.getUserMedia({
         audio:{echoCancellation:true,noiseSuppression:true},
         video:call.medium==='video'?{width:{ideal:640},height:{ideal:360},facingMode:'user'}:false
       });
-      if(!call){stream.getTracks().forEach(t=>t.stop());return;}
+      if(!call||call.id!==startedCallId){stream.getTracks().forEach(t=>t.stop());return;}
       localMedia=stream;localVideo.srcObject=stream;
       if(call.medium==='video')localVideo.play().catch(()=>{});
       present();
@@ -101,34 +149,62 @@
       if(call.role==='caller'){
         const offer=await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        queueSignal('offer',{type:'offer',sdp:offer.sdp});
+        if(call.medium==='video')await waitForVideoIce(peerConnection);
+        if(call?.id===startedCallId)sendDescription('offer');
       }
     }catch(err){
-      setStatus(err?.name==='NotAllowedError'?'Microphone/camera permission denied. Call cancelled.':(err.message||'Could not start the call.'));
+      const reason=err?.name==='NotAllowedError'?'Microphone/camera permission denied.':
+        err?.name==='NotFoundError'?'A microphone or camera was not found.':
+        err?.name==='NotReadableError'?'Camera/microphone is busy in another app.':
+        err?.message||'Could not start the call.';
       await endCall();
+      const feedback=$('community-feedback');
+      if(feedback)feedback.textContent='Call cancelled: '+reason;
     }finally{collectingMedia=false;}
   }
   function makeConnection(){
     if(peerConnection||!localMedia)return;
     // STUN helps peers connect on different networks. Strict NATs may require a TURN server.
-    const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+    const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}],bundlePolicy:'max-bundle'});
     peerConnection=pc;
     localMedia.getTracks().forEach(track=>pc.addTrack(track,localMedia));
     pc.ontrack=event=>{
+      if(!call||peerConnection!==pc)return;
       if(!remoteMedia)remoteMedia=new MediaStream();
       if(!remoteMedia.getTracks().some(t=>t.id===event.track.id))remoteMedia.addTrack(event.track);
-      const target=call?.medium==='video'?remoteVideo:remoteAudio;
-      target.srcObject=remoteMedia;
-      target.play().catch(()=>{setStatus('Tap your browser audio control to hear your friend.');});
+      // Separate remote sound from picture. This allows silent video autoplay while
+      // a dedicated audio element can be enabled by a user gesture if necessary.
+      if(call.medium==='video'){
+        remoteVideo.muted=true;
+        if(event.track.kind==='video'){
+          remoteVideo.srcObject=new MediaStream(remoteMedia.getVideoTracks());
+          void tryPlayMedia(remoteVideo);
+        }else if(event.track.kind==='audio'){
+          remoteAudio.srcObject=new MediaStream(remoteMedia.getAudioTracks());
+          void tryPlayMedia(remoteAudio);
+        }
+      }else{
+        // Preserve the already-working audio-only path from V12.8.12.
+        remoteAudio.srcObject=remoteMedia;
+        remoteAudio.play().catch(()=>{setStatus('Tap your browser audio control to hear your friend.');});
+      }
     };
     pc.onicecandidate=event=>{
-      if(event.candidate&&call?.state==='accepted')queueSignal('ice',event.candidate.toJSON());
+      if(!event.candidate||call?.state!=='accepted')return;
+      const candidate=event.candidate.toJSON();
+      if(call.medium==='video'&&!videoDescriptionQueued){videoIceBuffer.push(candidate);return;}
+      queueSignal('ice',candidate);
     };
     pc.onconnectionstatechange=()=>{
       if(!call||peerConnection!==pc)return;
-      if(pc.connectionState==='connected')setStatus('Connected · live '+call.medium+' call');
-      else if(pc.connectionState==='disconnected')setStatus('Connection interrupted. Reconnecting…');
-      else if(pc.connectionState==='failed')setStatus('Connection failed. This network may require a TURN relay; end and retry.');
+      if(pc.connectionState==='connected'){
+        setStatus(playNeedsGesture?'Connected. Click PLAY FRIEND SOUND to enable audio.':'Connected · live '+call.medium+' call');
+      }else if(pc.connectionState==='disconnected')setStatus('Connection interrupted. Reconnecting…');
+      else if(pc.connectionState==='failed'){
+        const noSdp=!pc.remoteDescription||!pc.localDescription;
+        setStatus(noSdp?'Connection setup failed: incomplete video signaling.':
+          'Network connection failed (ICE '+pc.iceConnectionState+'). A TURN relay may be required on these networks.');
+      }
     };
   }
   async function iceCandidate(body){
@@ -141,23 +217,30 @@
   async function consumeSignals(events){
     for(const item of events){
       const id=Number(item.id);
-      if(!Number.isSafeInteger(id))continue;
-      if(id>lastSignal)lastSignal=id;
-      if(item.kind==='ice'){
-        if(item.body&&typeof item.body.candidate==='string')await iceCandidate(item.body);
-      }else if(item.kind==='offer'&&call?.role==='callee'&&item.body?.type==='offer'){
-        if(!peerConnection)makeConnection();
-        if(!peerConnection||peerConnection.signalingState!=='stable')continue;
-        await peerConnection.setRemoteDescription(item.body);
-        await flushIce();
-        const answer=await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        queueSignal('answer',{type:'answer',sdp:answer.sdp});
-      }else if(item.kind==='answer'&&call?.role==='caller'&&item.body?.type==='answer'){
-        if(peerConnection&&!peerConnection.remoteDescription){
+      if(!Number.isSafeInteger(id)||id<=lastSignal)continue;
+      try{
+        if(item.kind==='ice'){
+          if(item.body&&typeof item.body.candidate==='string')await iceCandidate(item.body);
+        }else if(item.kind==='offer'&&call?.role==='callee'&&item.body?.type==='offer'){
+          if(!localMedia)break; // Re-read instead of discarding the offer during camera permission.
+          if(!peerConnection)makeConnection();
+          if(!peerConnection||peerConnection.signalingState!=='stable')break;
           await peerConnection.setRemoteDescription(item.body);
           await flushIce();
+          await peerConnection.setLocalDescription(await peerConnection.createAnswer());
+          if(call.medium==='video')await waitForVideoIce(peerConnection);
+          if(call)sendDescription('answer');
+        }else if(item.kind==='answer'&&call?.role==='caller'&&item.body?.type==='answer'){
+          if(!peerConnection||!peerConnection.localDescription)break;
+          if(!peerConnection.remoteDescription){
+            await peerConnection.setRemoteDescription(item.body);
+            await flushIce();
+          }
         }
+        lastSignal=id; // Advance only after successful processing (not before).
+      }catch(error){
+        setStatus('Video signaling error ('+(error?.name||'unknown')+'). End the call and retry.');
+        break; // Do not silently swallow or permanently skip a failed SDP.
       }
     }
   }
@@ -234,6 +317,13 @@
   hangupButton.addEventListener('click',endCall);
   closeButton.addEventListener('click',()=>call?.role==='callee'&&call.state==='ringing'?declineCall():endCall());
   panel.addEventListener('cancel',event=>{event.preventDefault();call?.role==='callee'&&call.state==='ringing'?declineCall():endCall();});
+  playMediaButton?.addEventListener('click',async()=>{
+    if(!call)return;
+    // An explicit click allows unmuted audio on browsers with autoplay protection.
+    if(remoteAudio.srcObject)await tryPlayMedia(remoteAudio);
+    if(call.medium==='video'&&remoteVideo.srcObject)await tryPlayMedia(remoteVideo);
+    if(remoteAudio.srcObject&&!remoteAudio.paused){playNeedsGesture=false;playMediaButton.hidden=true;setStatus('Friend audio playing.');}
+  });
   muteButton.addEventListener('click',()=>{
     const tracks=localMedia?.getAudioTracks()||[];
     if(!tracks.length)return;
