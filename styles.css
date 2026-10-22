@@ -1067,3 +1067,10 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 .vxsk-private-share-grid:fullscreen,.vxsk-private-share-grid.vxsk-share-theater{width:100vw!important;height:100dvh!important;display:grid!important;align-content:center;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));padding:12px;margin:0;box-sizing:border-box;background:#03050b;overflow:auto}
 .vxsk-private-share-grid.vxsk-share-theater{position:fixed;inset:0;z-index:2147483599}
 .vxsk-private-share-grid:fullscreen .vxsk-share-tools,.vxsk-private-share-grid.vxsk-share-theater .vxsk-share-tools{opacity:1}
+
+.nav-community-icon{width:20px;height:20px;display:block;filter:drop-shadow(0 0 6px rgba(182,148,255,.28));}
+.nav-community-mini.has-alert{border-color:#ff6a9e;background:rgba(106,28,65,.88);box-shadow:0 0 0 1px rgba(255,106,158,.18) inset,0 0 20px rgba(227,77,158,.18);}
+.nav-friend-count{padding:0 4px;min-width:18px}
+.community-avatar.is-category-icon{font-size:19px;background:linear-gradient(145deg,#4e2a95,#174f92);}
+.community-avatar.is-category-icon img{display:none!important;}
+.community-entry-copy .community-alert-meta{display:block;margin-top:3px;color:#ffb9d5;font-weight:700;letter-spacing:.02em;}

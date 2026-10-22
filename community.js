@@ -12,20 +12,98 @@
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
   const signedAvatars=new Map();
   let presenceMissing=false;
+  let lastAlertState={requests:0,unread:0,total:0,ready:false};
+  let alertSoundUnlocked=false;
+  let alertFunctionMissing=false;
 
   const categoryMap=[
-    ['Rocket League','#games','Game · Four seasonal modes'],
-    ['League of Legends','#modes','Game · 2027 calendar'],
-    ['VALORANT','#modes','Game · 2027 calendar'],
-    ['Showmatches & event modes','#modes','Calendar · Twelve seasonal phases'],
-    ['Match fixtures & announcements','#match-center','Official news and pairings'],
-    ['No Opponent / Find Rival','#find-rival','Private staff matchmaking request'],
-    ['Team & Staff','#staff','Meet the VXSK crew'],
-    ['Contact','#contact','VXSK social and email contacts'],
-    ['My Account','#members','Player account and applications']
+    ['Rocket League','#games','Game · Four seasonal modes','🚗'],
+    ['League of Legends','#modes','Game · 2027 calendar','🗡️'],
+    ['VALORANT','#modes','Game · 2027 calendar','🎯'],
+    ['Showmatches & event modes','#modes','Calendar · Twelve seasonal phases','🏟️'],
+    ['Match fixtures & announcements','#match-center','Official news and pairings','📢'],
+    ['No Opponent / Find Rival','#find-rival','Private staff matchmaking request','🧭'],
+    ['Team & Staff','#staff','Meet the VXSK crew','👥'],
+    ['Contact','#contact','VXSK social and email contacts','✉️'],
+    ['My Account','#members','Player account and applications','👤']
   ];
   function note(message){info.textContent=message;}
   const el=(tag,content,cls)=>{const out=document.createElement(tag);if(content!==undefined)out.textContent=String(content);if(cls)out.className=cls;return out;};
+  async function rpcQuiet(name,args={}){
+    if(!await getSession())return {ok:false,silent:true};
+    const {data,error}=await client.rpc(name,args);
+    if(error){
+      console.warn('VXSK community quiet RPC:',name,error?.code||'error');
+      if(/function.*(not|missing)|schema cache|could not find/i.test(error.message||''))return {ok:false,missing:true};
+      return {ok:false,error};
+    }
+    return {ok:true,data};
+  }
+  function unlockAlertSound(){alertSoundUnlocked=true;}
+  document.addEventListener('pointerdown',unlockAlertSound,{passive:true});
+  document.addEventListener('keydown',unlockAlertSound,{passive:true});
+  function playAlertSound(){
+    if(!alertSoundUnlocked)return;
+    try{
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx)return;
+      const ctx=new AudioCtx();
+      const now=ctx.currentTime;
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.setValueAtTime(880,now);
+      osc.frequency.linearRampToValueAtTime(1120,now+.11);
+      gain.gain.setValueAtTime(0.0001,now);
+      gain.gain.exponentialRampToValueAtTime(0.08,now+.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+.20);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);osc.stop(now+.22);
+      osc.onended=()=>{if(ctx.state!=='closed')void ctx.close().catch(()=>{});};
+    }catch(_){/* no-op */}
+  }
+  function updateAlertBadge(total,requests,unread){
+    if(navFriendCount){
+      navFriendCount.hidden=!total;
+      navFriendCount.textContent=total>99?'99+':String(total);
+    }
+    if(navFriendsToggle){
+      navFriendsToggle.classList.toggle('has-alert',total>0);
+      const bits=[];
+      if(requests>0)bits.push(`${requests} request${requests===1?'':'s'}`);
+      if(unread>0)bits.push(`${unread} unread DM${unread===1?'':'s'}`);
+      navFriendsToggle.title=bits.length?('Friends and requests · '+bits.join(' · ')):'Friends and requests';
+      navFriendsToggle.setAttribute('aria-label',bits.length?('Open friends and requests, '+bits.join(' and ')):'Open friends and requests');
+    }
+  }
+  async function refreshAlerts({silent=false}={}){
+    if(!await getSession()){
+      lastAlertState={requests:0,unread:0,total:0,ready:false};
+      updateAlertBadge(0,0,0);
+      return;
+    }
+    let requests=Array.isArray(snapshot?.links)?snapshot.links.filter(x=>x.status==='pending'&&!x.outgoing).length:0;
+    let unread=0;
+    if(!alertFunctionMissing){
+      const res=await rpcQuiet('vxsk_social_alerts');
+      if(res.ok&&res.data){
+        requests=Math.max(0,Number(res.data.requests||0));
+        unread=Math.max(0,Number(res.data.unread_messages||0));
+      }else if(res.missing){
+        alertFunctionMissing=true;
+      }
+    }
+    const total=requests+unread;
+    const increased=lastAlertState.ready&&(requests>lastAlertState.requests||unread>lastAlertState.unread);
+    updateAlertBadge(total,requests,unread);
+    if(increased&&!silent&&document.visibilityState==='visible'){
+      playAlertSound();
+      if(requests>lastAlertState.requests&&unread>lastAlertState.unread)note('New friend request and new DM received.');
+      else if(requests>lastAlertState.requests)note('New friend request received.');
+      else if(unread>lastAlertState.unread)note('New DM received.');
+    }
+    lastAlertState={requests,unread,total,ready:true};
+  }
   function action(label,callback,variant=''){
     const button=el('button',label,'community-action '+variant);button.type='button';button.addEventListener('click',async()=>{
       button.disabled=true;
@@ -60,28 +138,15 @@
     }
     return {ok:true,data};
   }
-  function avatarEl(name){
-    const a=el('span',(name||'?').trim().charAt(0).toUpperCase(),'community-avatar');
+  function avatarEl(name,icon=''){
+    const label=(icon||((name||'?').trim().charAt(0).toUpperCase()));
+    const a=el('span',label,'community-avatar'+(icon?' is-category-icon':''));
     a.setAttribute('aria-hidden','true');return a;
   }
-  // The STAGING avatars bucket remains private. Only signed-in users with
-  // backend authorization can request a short-lived URL for a permitted peer.
-  async function addAvatar(target,peerId,path){
-    if(!client||!path||!peerId||!path.startsWith(peerId+'/'))return;
-    const cached=signedAvatars.get(path);
-    let src=cached?.expires>Date.now()+30000 ? cached.url:null;
-    if(!src){
-      const {data,error}=await client.storage.from('vxsk-avatars').createSignedUrl(path,600);
-      if(error||!data?.signedUrl)return;
-      src=data.signedUrl;signedAvatars.set(path,{url:src,expires:Date.now()+570000});
-    }
-    if(!target.isConnected)return;
-    const img=document.createElement('img');img.alt='';img.loading='lazy';img.src=src;
-    img.onerror=()=>img.remove();target.append(img);
-  }
-  function makeEntry(title,desc,buttons=[],peerId=null,avatarPath=null,online=null){
+  function makeEntry(title,desc,buttons=[],peerId=null,avatarPath=null,online=null,icon=''){
+
     const card=el('article',undefined,'community-entry');
-    const avatar=avatarEl(title);card.append(avatar);
+    const avatar=avatarEl(title,icon);card.append(avatar);
     if(peerId&&avatarPath)void addAvatar(avatar,peerId,avatarPath);
     const words=el('div',undefined,'community-entry-copy');
     const heading=el('strong',title);words.append(heading);
@@ -102,7 +167,6 @@
     navFriendsEntries.replaceChildren();
     const accepted=links.filter(x=>x.status==='accepted');
     const incoming=links.filter(x=>x.status==='pending'&&!x.outgoing);
-    if(navFriendCount){navFriendCount.hidden=!incoming.length;navFriendCount.textContent=String(incoming.length);}
     if(!accepted.length&&!incoming.length){navFriendsEntries.append(el('p','No friends or requests yet. Use Add Friend to find players.'));return;}
     if(incoming.length){navFriendsEntries.append(el('h4','REQUESTS ('+incoming.length+')'));
       for(const item of incoming){
@@ -126,7 +190,7 @@
   function handleSearch(){
     const term=search.value.trim().slice(0,30);lastTerm=term;results.replaceChildren();
     const categoryHits=categoryMap.filter(x=>!term||x[0].toLowerCase().includes(term.toLowerCase()) || x[2].toLowerCase().includes(term.toLowerCase()));
-    for(const [name,href,subtitle] of categoryHits){const link=el('a','OPEN CATEGORY ↗','community-category-link');link.href=href;results.append(makeEntry(name,subtitle,[link]));}
+    for(const [name,href,subtitle,icon] of categoryHits){const link=el('a','OPEN CATEGORY ↗','community-category-link');link.href=href;results.append(makeEntry(name,subtitle,[link],null,null,null,icon));}
     if(term.length<2){note('Search categories, or enter at least two characters of a player nickname.');return;}
     searchPlayers(term);
   }
@@ -161,6 +225,7 @@
     const links=Array.isArray(snapshot.links)?snapshot.links:[];
     const blocks=Array.isArray(snapshot.blocked)?snapshot.blocked:[];
     renderMiniFriends(links);
+    await refreshAlerts({silent:true});
     if(!links.length&&!blocks.length) friendsEl.append(el('p','No friends or invitations yet.'));
     for(const item of links){
       let state=item.status==='accepted'?'FRIEND':item.status==='pending'?(item.outgoing?'INVITE SENT':'NEW INVITE'):'DECLINED';
@@ -213,7 +278,7 @@
       box.append(makeEntry(c.peer_name,c.game+' · '+c.mode+' · '+c.state.toUpperCase()+(c.incoming?' · CHALLENGED YOU':''),buttons));
     }
   }
-  async function openChat(id,name){peer=id;peerName=name;chat.hidden=false;chatTitle.textContent='PRIVATE CHAT · '+name;await refreshChat();chat.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  async function openChat(id,name){peer=id;peerName=name;chat.hidden=false;chatTitle.textContent='PRIVATE CHAT · '+name;await refreshChat();void rpcQuiet('vxsk_social_mark_dm_seen',{p_peer:id}).then(()=>refreshAlerts({silent:true}));chat.scrollIntoView({behavior:'smooth',block:'nearest'});}
   function closeChat(){peer=null;chat.hidden=true;messages.replaceChildren();}
   async function refreshChat(){
     if(!peer||document.hidden)return;
@@ -224,6 +289,7 @@
     // message participants. If the optional Arena migration is not yet installed,
     // existing chat continues normally with no broken buttons.
     const history=(r.data||[]).slice().reverse();
+    const hasIncoming=history.some(entry=>!entry.from_me);
     let reactionEnabled=false;
     const reactions=new Map();
     const ids=history.map(entry=>entry.message_id).filter(Boolean).slice(0,75);
@@ -262,6 +328,7 @@
     }
     if(!(r.data||[]).length)messages.append(el('p','You are connected. Say hello without sharing personal details.'));
     messages.scrollTop=messages.scrollHeight;
+    if(hasIncoming){void rpcQuiet('vxsk_social_mark_dm_seen',{p_peer:peer}).then(()=>refreshAlerts({silent:true}));}
   }
   navForm?.addEventListener('submit',e=>{
     e.preventDefault();const query=navSearch?.value.trim().slice(0,30)||'';
@@ -311,12 +378,13 @@
     const box=$('community-message-text');const text=box.value.trim();
     if(!text||text.length>500)return;
     const r=await rpc('vxsk_social_send_dm',{p_peer:peer,p_message:text});
-    if(r.ok){if(r.data){box.value='';await refreshChat();}else note('Message not sent. You must be accepted friends and under the message rate limit.');}
+    if(r.ok){if(r.data){box.value='';await refreshChat();await refreshAlerts({silent:true});}else note('Message not sent. You must be accepted friends and under the message rate limit.');}
   });
-  window.addEventListener('vxsk:auth-updated',()=>{void refreshState();void refreshChallenges();});
-  window.addEventListener('vxsk:auth-change',()=>{void refreshState();void refreshChallenges();});
+  window.addEventListener('vxsk:auth-updated',()=>{void refreshState();void refreshChallenges();void refreshAlerts({silent:true});});
+  window.addEventListener('vxsk:auth-change',()=>{void refreshState();void refreshChallenges();void refreshAlerts({silent:true});});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&peer)refreshChat();});
   setInterval(()=>{if(peer&&!document.hidden)refreshChat();},20000);
+  setInterval(()=>{if(!document.hidden)void refreshAlerts();},15000);
   // Expose only the current accepted-friends snapshot and opt-in avatars to
   // the call UI. Storage permissions still verify every signed URL request.
   window.VXSKCommunity=Object.freeze({
@@ -330,5 +398,5 @@
   });
   handleSearch();
   // Async auth can finish after this module initializes.
-  setTimeout(async()=>{await refreshState();await heartbeat();await refreshChallenges();},1200);
+  setTimeout(async()=>{await refreshState();await heartbeat();await refreshChallenges();await refreshAlerts({silent:true});},1200);
 })();
