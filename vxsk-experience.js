@@ -6,7 +6,7 @@
     '#games': [['ROCKET LEAGUE','LIVE ARENA','Duel, duo, trio & freestyle.','assets/game-rocket-custom.webp','#games'],['VALORANT','COMING SOON','Tactical showdowns are next.','assets/game-valorant-custom.webp','#games'],['LEAGUE OF LEGENDS','COMING SOON','New legends will rise.','assets/game-league-custom.webp','#games']],
     '#modes': [['ROCKET LEAGUE','FOUR FORMATS','Oct 2026 to Feb 2027.','assets/game-rocket-custom.webp','#modes'],['LEAGUE OF LEGENDS','FOUR SHOWMATCHES','Mar to Jul 2027.','assets/game-league-custom.webp','#modes'],['VALORANT','FOUR SHOWMATCHES','Aug to Nov 2027.','assets/game-valorant-custom.webp','#modes']],
     '#match-center': [['THE ARENA BULLETIN','OFFICIAL UPDATES','Confirmed fixtures & announcements.','assets/vxsk-announcement-wide.webp','#match-center']],
-    '#community': [['VXSK COMMUNITY','FIND YOUR SQUAD','Opt-in player discovery and accepted-friend messaging.','assets/game-rocket-custom.webp','#community']],
+    '#community': [['VXSK COMMUNITY','FIND YOUR SQUAD','One-click friend requests, auto-discovery and private messaging.','assets/game-rocket-custom.webp','#community']],
     '#find-rival': [['FIND RIVAL','THE NEXT CHALLENGER','Meet a future opponent.','assets/mode-duel.webp','#find-rival']],
     '#staff': [['THE TEAM','THE PEOPLE BEHIND VXSK','Meet the team behind the event.','assets/staff-shark.webp','#staff'],['OUR CREATIVE TEAM','STAFF','Creators, casters and organizers.','assets/staff-dyfe.webp','#staff']],
     '#videos': [['WATCH VXSK','MOMENTS ON SCREEN','Watch real highlights from our YouTube picks.','https://i.ytimg.com/vi/UPIJv_3sWC4/hqdefault.jpg','#videos']],

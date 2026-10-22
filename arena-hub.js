@@ -43,7 +43,7 @@
   function renderCalendar(){
     const box=$('arena-event-list');box.replaceChildren();
     for(const evt of [...state.events].sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)).slice(0,35)){
-      const c=card(evt.title,evt.game,'',dateText(evt.starts_at));if(evt.details)c.append(el('p',evt.details));box.append(c);
+      const c=card(evt.title,evt.game,'',dateText(evt.starts_at));if(evt.details)c.append(el('p',evt.details));if(evt.prize)c.append(el('p','🏆 Prize: '+evt.prize,'arena-prize'));box.append(c);
     }
     if(!box.children.length)box.append(empty('No published event calendar dates yet.'));
   }
@@ -132,7 +132,7 @@
   }
   async function loadPublic(){
     const [events,matches,teams] = await Promise.all([
-      state.api.from('vxsk_hub_events').select('id,title,game,starts_at,details,published').eq('published',true).order('starts_at',{ascending:true}).limit(80),
+      state.api.from('vxsk_hub_events').select('id,title,game,starts_at,details,prize,published').eq('published',true).order('starts_at',{ascending:true}).limit(80),
       state.api.from('vxsk_hub_matches').select('id,event_id,game,round_name,bracket_slot,side_a,side_b,starts_at,state,score_a,score_b,published').eq('published',true).limit(120),
       state.api.from('vxsk_hub_teams').select('id,captain_id,name,game,description,published').eq('published',true).limit(60)
     ]);

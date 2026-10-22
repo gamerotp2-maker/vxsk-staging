@@ -1,5 +1,5 @@
 'use strict';
-// VXSK STAGING V12.8.17: fullscreen call stage and consented screen/tab audio sharing.
+// VXSK STAGING V12.8.22: fullscreen video/share surface and consented screen/tab audio sharing.
 // Signaling is via authenticated, participant-restricted Supabase RPCs.
 // No automatic camera/microphone activation; calls are never recorded here.
 (() => {
@@ -8,14 +8,15 @@
   if (!panel) return;
   const title = $('vxsk-call-title'), status = $('vxsk-call-status');
   const acceptButton = $('vxsk-call-accept'), declineButton = $('vxsk-call-decline');
-  const muteButton = $('vxsk-call-mute'), cameraButton = $('vxsk-call-camera');
+  const muteButton = $('vxsk-call-mute'), cameraButton = $('vxsk-call-camera'), muteFriendButton=$('vxsk-call-mute-user');
   const hangupButton = $('vxsk-call-hangup'), closeButton = $('vxsk-call-close');
   const mediaBox = $('vxsk-call-video'), remoteVideo = $('vxsk-remote-video');
   const localVideo = $('vxsk-local-video'), remoteAudio = $('vxsk-remote-audio');
   const playMediaButton=$('vxsk-call-play-media');
   const remoteShareAudio=$('vxsk-share-audio'), fullStage=$('vxsk-call-stage'), fullscreenButton=$('vxsk-call-fullscreen');
+  const privateShares=$('vxsk-private-shares'),cameraPlaceholder=$('vxsk-call-camera-placeholder'),videoPeerAvatar=$('vxsk-video-peer-avatar'),videoPeerName=$('vxsk-video-peer-name');
   const networkButton=$('vxsk-call-network'), networkInfo=$('vxsk-call-network-info');
-  const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label');
+  const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label'),shareExit=$('vxsk-share-exit');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
   let collectingMedia=false, updating=false, checkingInbox=false;
   let signaling=Promise.resolve(), pendingIce=[], myId=null;
@@ -24,7 +25,7 @@
   const ringToggle=$('vxsk-call-ringtone-toggle');
   const myAvatar=$('vxsk-call-my-avatar'),peerAvatar=$('vxsk-call-peer-avatar');
   const myName=$('vxsk-call-my-name'),peerName=$('vxsk-call-peer-name'),voices=$('vxsk-call-voices');
-  let minimized=false,ringEnabled=false,playingTone='';
+  let minimized=false,ringEnabled=false,playingTone='',theater=false;
   // Original VXSK tones are ordinary HTML media: generally less vulnerable to
   // animation timer throttling than repeated synthesized oscillator callbacks.
   // Background sound is still controlled by the browser and operating system.
@@ -36,7 +37,8 @@
   const freeStunOnly=true;
   const freeStunServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
   let iceServers=freeStunServers,hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
-  let videoSender=null,screenAudioSender=null,shareStream=null,shareTrack=null,shareAudioTrack=null,sharing=false,sharingAudio=false,friendScreen=false,friendSharingAudio=false;
+  let videoSender=null,screenVideoSender=null,screenAudioSender=null,shareStream=null,shareTrack=null,shareAudioTrack=null,sharing=false,sharingAudio=false,friendScreen=false,friendSharingAudio=false;
+  let peerCameraTrack=null,peerScreenTrack=null,peerCameraOff=false,friendMuted=false,shareMuted=false,shareTiles={};
   let callStartedAt=0;
   let meterCtx=null,meterRaf=0,localAnalyser=null,remoteAnalyser=null;
   let voiceLast=0;
@@ -57,7 +59,7 @@
   }
   function minimize(){
     if(!call)return;
-    if(document.fullscreenElement===fullStage)void document.exitFullscreen().catch(()=>{});
+    void exitLargeShare();
     minimized=true;
     if(panel.open)panel.close();
     panel.hidden=true;
@@ -155,23 +157,29 @@
     const old=shareTrack, oldAudio=shareAudioTrack;
     shareTrack=null;shareAudioTrack=null;sharing=false;sharingAudio=false;
     // Stop *only* screen media. Keep the microphone and its independent mute state.
-    const camera=localMedia?.getVideoTracks()?.[0]||null;
-    if(videoSender&&peerConnection?.signalingState!=='closed')void videoSender.replaceTrack(camera).catch(()=>{});
+    if(screenVideoSender&&peerConnection?.signalingState!=='closed')void screenVideoSender.replaceTrack(null).catch(()=>{});
     if(screenAudioSender&&peerConnection?.signalingState!=='closed')void screenAudioSender.replaceTrack(null).catch(()=>{});
+    if(old&&call?.state==='accepted')queueSignal('ice',{vxskScreen:true,active:false,audio:false});
     if(old)old.onended=null;
     if(oldAudio)oldAudio.onended=null;
     shareStream?.getTracks()?.forEach(t=>t.stop());shareStream=null;
-    if(localVideo)localVideo.srcObject=localMedia;
+    removeShareTile('self');
+    if(localVideo)localVideo.srcObject=localMedia?.getVideoTracks().length?new MediaStream(localMedia.getVideoTracks()):null;
     updateScreenUi();
   }
   function updateScreenUi(){
     if(!call)return;
     if(screenButton){screenButton.hidden=call.state!=='accepted'||!peerConnection;screenButton.textContent=sharing?'STOP SHARING':'SHARE SCREEN';}
     if(shareLabel){shareLabel.hidden=!sharing&&!friendScreen;shareLabel.textContent=sharing?(sharingAudio?'YOU ARE SHARING + SOUND':'YOU ARE SHARING SCREEN'):(friendSharingAudio?'FRIEND IS SHARING + SOUND':'FRIEND IS SHARING SCREEN');}
-    mediaBox.hidden=(!localMedia||call.medium!=='video')&&!sharing&&!friendScreen;
+    mediaBox.hidden=call.medium!=='video'&&!(peerCameraTrack&&!peerCameraTrack.muted&&!peerCameraOff)&&!localMedia?.getVideoTracks().some(t=>t.enabled);
+    updateCameraPlaceholder();
+    mediaBox.dataset.localShare=String(sharing);
+    mediaBox.dataset.remoteShare=String(friendScreen);
+    if(fullscreenButton)fullscreenButton.textContent=(document.fullscreenElement===mediaBox||theater)?'EXIT SHARE FULLSCREEN ↙':((sharing||friendScreen)?'FULLSCREEN SHARE ⛶':'FULLSCREEN VIDEO ⛶');
+    if(shareExit)shareExit.hidden=!(document.fullscreenElement===mediaBox||theater);
   }
   async function startScreenShare(){
-    if(!call||call.state!=='accepted'||!peerConnection||!videoSender)return;
+    if(!call||call.state!=='accepted'||!peerConnection||!screenVideoSender)return;
     if(sharing){stopScreenShare();return;}
     if(!navigator.mediaDevices?.getDisplayMedia){setStatus('Screen sharing is not supported by this browser.');return;}
     // This call must occur synchronously after the click; the picker requires a gesture.
@@ -187,7 +195,7 @@
       const track=captured.getVideoTracks()[0];
       let audioTrack=captured.getAudioTracks()[0]||null;
       if(!track||!call||call.id!==startingCallId||peerConnection!==startingPc){captured.getTracks().forEach(t=>t.stop());return;}
-      await videoSender.replaceTrack(track);changedVideo=true;
+      await screenVideoSender.replaceTrack(track);changedVideo=true;
       // An extra audio transceiver is negotiated during call setup. Audio sharing
       // is independent of the microphone: mute only controls the mic track.
       if(audioTrack){
@@ -201,6 +209,7 @@
       }
       shareStream=captured;shareTrack=track;shareAudioTrack=audioTrack;
       sharing=true;sharingAudio=!!audioTrack;
+      queueSignal('ice',{vxskScreen:true,active:true,audio:sharingAudio});
       track.onended=()=>{if(shareTrack===track)stopScreenShare();};
       if(audioTrack)audioTrack.onended=()=>{
         if(shareAudioTrack===audioTrack){
@@ -209,19 +218,49 @@
           updateScreenUi();setStatus('Screen share continues without sound.');
         }
       };
-      localVideo.srcObject=new MediaStream([track]);
-      void localVideo.play().catch(()=>{});
+      showShareTile('self','YOU',track,null);
+      updateScreenUi();
       updateScreenUi();
       setStatus(audioTrack?
         'Sharing your screen and its audio. Your microphone stays independent.':
         'Sharing screen WITHOUT audio: if your browser offers it, select a tab and check Share tab audio, then try again.');
     }catch(e){
-      if(changedVideo&&videoSender&&peerConnection===startingPc){
-        void videoSender.replaceTrack(localMedia?.getVideoTracks()?.[0]||null).catch(()=>{});
+      if(changedVideo&&screenVideoSender&&peerConnection===startingPc){
+        void screenVideoSender.replaceTrack(null).catch(()=>{});
       }
       if(captured)captured.getTracks().forEach(t=>t.stop());
       if(e?.name!=='NotAllowedError')setStatus('Screen sharing could not start'+(e?.name?' ('+e.name+')':'')+'. Try sharing a browser tab.');
     }
+  }
+  function updateCameraPlaceholder(){
+    if(!cameraPlaceholder||!call)return;
+    cameraPlaceholder.hidden=!!(peerCameraTrack&&peerCameraTrack.readyState==='live'&&!peerCameraTrack.muted&&!peerCameraOff);
+    if(peerCameraTrack&&!peerCameraTrack.muted&&call.medium==='audio')mediaBox.hidden=false;
+  }
+  function removeShareTile(id){const ui=shareTiles[id];if(!ui)return;ui.video.srcObject=null;
+    ui.card.remove();delete shareTiles[id];if(privateShares)privateShares.hidden=!privateShares.childElementCount;
+  }
+  function showShareTile(id,name,track){
+    if(!privateShares||!track)return;
+    let ui=shareTiles[id];
+    if(!ui){const card=document.createElement('article');card.className='vxsk-share-card';
+      card.dataset.user=id;const video=document.createElement('video');video.autoplay=true;video.playsInline=true;video.muted=true;
+      const label=document.createElement('span');label.className='vxsk-screen-label';label.textContent=(id==='self'?'YOU':name)+' · SCREEN';
+      const tools=document.createElement('div');tools.className='vxsk-share-tools';
+      const mute=document.createElement('button');mute.type='button';mute.className='vxsk-mini-control';mute.textContent='MUTE SHARE SOUND';
+      const full=document.createElement('button');full.type='button';full.className='vxsk-mini-control';full.textContent='FULLSCREEN ⛶';
+      if(id==='self')mute.hidden=true;
+      else mute.addEventListener('click',()=>{shareMuted=!shareMuted;if(remoteShareAudio)remoteShareAudio.muted=shareMuted;
+        mute.textContent=shareMuted?'UNMUTE SHARE SOUND':'MUTE SHARE SOUND';mute.setAttribute('aria-pressed',String(shareMuted));});
+      full.addEventListener('click',async()=>{
+        if(document.fullscreenElement===card||card.classList.contains('vxsk-share-theater')){
+          card.classList.remove('vxsk-share-theater');if(document.fullscreenElement===card)await document.exitFullscreen().catch(()=>{});return;}
+        try{await card.requestFullscreen();}catch(_){card.classList.add('vxsk-share-theater');}
+      });
+      tools.append(mute,full);card.append(video,label,tools);privateShares.append(card);
+      ui={card,video};shareTiles[id]=ui;
+    }
+    ui.video.srcObject=new MediaStream([track]);void ui.video.play().catch(()=>{});privateShares.hidden=false;
   }
   function avatarFallback(node,name){
     if(!node)return;
@@ -234,6 +273,7 @@
     if(myName)myName.textContent=n;
     if(peerName)peerName.textContent=call.name;
     avatarFallback(myAvatar,n);avatarFallback(peerAvatar,call.name);
+    if(videoPeerName)videoPeerName.textContent=call.name;avatarFallback(videoPeerAvatar,call.name);
     const own=$('nav-avatar');
     if(own&&!own.hidden&&own.src){
       const img=document.createElement('img');img.src=own.src;img.alt='';img.decoding='async';
@@ -241,8 +281,8 @@
     }
     // The community module exposes only avatars a player opted to share.
     const community=window.VXSKCommunity;
-    if(community?.refreshFriendAvatar)void community.refreshFriendAvatar(peerAvatar,call.peerId);
-    else if(community?.addFriendAvatar)void community.addFriendAvatar(peerAvatar,call.peerId);
+    if(community?.refreshFriendAvatar){void community.refreshFriendAvatar(peerAvatar,call.peerId);void community.refreshFriendAvatar(videoPeerAvatar,call.peerId);}
+    else if(community?.addFriendAvatar){void community.addFriendAvatar(peerAvatar,call.peerId);void community.addFriendAvatar(videoPeerAvatar,call.peerId);}
   }
   function clearMeters(){
     if(meterRaf)cancelAnimationFrame(meterRaf);meterRaf=0;
@@ -297,7 +337,8 @@
     hangupButton.hidden=!(call.role==='caller'||call.state==='accepted');
     hangupButton.textContent=ringing?'CANCEL CALL':'END CALL';
     muteButton.hidden=call.state!=='accepted'||!localMedia;
-    cameraButton.hidden=call.medium!=='video'||call.state!=='accepted'||!localMedia;
+    cameraButton.hidden=call.state!=='accepted'||!localMedia;
+    muteFriendButton.hidden=call.state!=='accepted';
     updateScreenUi();
     if(voices)voices.hidden=call.medium!=='audio'||call.state!=='accepted';
     if(playMediaButton)playMediaButton.hidden=call.state!=='accepted'||!playNeedsGesture;
@@ -309,18 +350,20 @@
     clearMeters();
     stopTones();
     if(iceRetryTimer)clearTimeout(iceRetryTimer);iceRetryTimer=null;iceRetry=0;iceRestarting=false;
-    if(document.fullscreenElement===fullStage)void document.exitFullscreen().catch(()=>{});
-    stopScreenShare();videoSender=null;screenAudioSender=null;friendScreen=false;friendSharingAudio=false;
+    void exitLargeShare();
+    stopScreenShare();videoSender=null;screenVideoSender=null;screenAudioSender=null;friendScreen=false;friendSharingAudio=false;peerCameraTrack=null;peerScreenTrack=null;peerCameraOff=false;friendMuted=false;shareMuted=false;
+    removeShareTile('friend');removeShareTile('self');
     try{peerConnection?.close();}catch(_){} peerConnection=null;
     localMedia?.getTracks().forEach(track=>track.stop());localMedia=null;
     remoteMedia?.getTracks().forEach(track=>track.stop());remoteMedia=null;
-    localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;
+    localVideo.srcObject=null;remoteVideo.srcObject=null;remoteAudio.srcObject=null;remoteAudio.muted=false;muteFriendButton.textContent='MUTE FRIEND';
+    if(cameraPlaceholder)cameraPlaceholder.hidden=true;
     if(remoteShareAudio)remoteShareAudio.srcObject=null;
     pendingIce=[];signaling=Promise.resolve();lastSignal=0;collectingMedia=false;
     videoDescriptionQueued=false;videoIceBuffer=[];playNeedsGesture=false;iceReady=false;hasTurn=false;iceServers=freeStunServers;
     if(playMediaButton)playMediaButton.hidden=true;
     if(networkButton)networkButton.hidden=true;
-    if(fullscreenButton){fullscreenButton.hidden=true;fullscreenButton.textContent='FULLSCREEN ⛶';fullscreenButton.setAttribute('aria-pressed','false');}
+    if(fullscreenButton){fullscreenButton.hidden=true;fullscreenButton.textContent='FULLSCREEN SHARE ⛶';fullscreenButton.setAttribute('aria-pressed','false');}
     if(networkInfo){networkInfo.hidden=true;networkInfo.textContent='';}
   }
   function dismiss(message=''){
@@ -358,8 +401,8 @@
       if(!ok)throw Error('Call signaling permission denied.');
     }).catch(e=>{ if(call?.id===id)setStatus(e.message||'Call connection failed.'); });
   }
-  // Video uses complete (or time-bounded) ICE gathering for the initial SDP.
-  // This reduces candidate/SDP ordering races when signaling is polled through RPC.
+  // Legacy bounded ICE gathering; initial SDP now sends promptly and candidates trickle.
+  // Waiting 10s caused slow video pickup and enlarged SDP beyond the RPC cap.
   async function waitForVideoIce(pc){
     if(pc.iceGatheringState==='complete')return;
     await new Promise(resolve=>{
@@ -384,9 +427,8 @@
     queueSignal(kind,{type:kind,sdp:pc.localDescription.sdp});
     if(call?.medium==='video'){
       videoDescriptionQueued=true;
-      // Candidates gathered while waiting are already embedded in localDescription.
-      // Only send subsequent trickle candidates if gathering had to time out.
-      videoIceBuffer=[];
+      // Queue SDP first, then all ICE emitted before the offer/answer.
+      for(const c of videoIceBuffer.splice(0))queueSignal('ice',c);
     }
   }
   function showMediaPlaybackNeeded(){
@@ -397,7 +439,7 @@
   }
   async function tryPlayMedia(element){
     if(!element?.srcObject)return;
-    try{await element.play();if(element===remoteAudio){playNeedsGesture=false;if(playMediaButton)playMediaButton.hidden=true;}}
+    try{await element.play();if([remoteAudio,remoteShareAudio].filter(a=>a?.srcObject).every(a=>!a.paused)){playNeedsGesture=false;if(playMediaButton)playMediaButton.hidden=true;}}
     catch(e){if(e?.name==='NotAllowedError')showMediaPlaybackNeeded();else setStatus('Friend media received, but your browser could not play it.');}
   }
   async function startMedia(){
@@ -408,12 +450,18 @@
         throw Error('Your browser does not support secure audio/video calling.');
       setStatus('Asking your browser for '+(call.medium==='video'?'camera and microphone':'microphone')+' permission…');
       const startedCallId=call.id;
-      const stream=await navigator.mediaDevices.getUserMedia({
+      let stream;
+      try{stream=await navigator.mediaDevices.getUserMedia({
         audio:{echoCancellation:true,noiseSuppression:true},
         video:call.medium==='video'?{width:{ideal:640},height:{ideal:360},facingMode:'user'}:false
-      });
+      });}catch(err){
+        if(call.medium!=='video')throw err;
+        // A missing/busy/denied camera must not hang up a valid microphone call.
+        stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+      }
       if(!call||call.id!==startedCallId){stream.getTracks().forEach(t=>t.stop());return;}
-      localMedia=stream;localVideo.srcObject=stream;
+      localMedia=stream;localVideo.srcObject=stream.getVideoTracks().length?new MediaStream(stream.getVideoTracks()):null;
+      cameraButton.textContent=stream.getVideoTracks().some(t=>t.enabled)?'CAMERA OFF':'CAMERA ON';
       if(call.medium==='audio')initMeter();
       if(call.medium==='video')localVideo.play().catch(()=>{});
       present();
@@ -431,7 +479,6 @@
       if(call.role==='caller'){
         const offer=await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        if(call.medium==='video')await waitForVideoIce(peerConnection);
         if(call?.id===startedCallId)sendDescription('offer');
       }
     }catch(err){
@@ -449,64 +496,48 @@
     // STUN helps peers connect on different networks. Strict NATs may require a TURN server.
     const pc=new RTCPeerConnection({iceServers,bundlePolicy:'max-bundle'});
     peerConnection=pc;
-    localMedia.getTracks().forEach(track=>{const sender=pc.addTrack(track,localMedia);if(track.kind==='video')videoSender=sender;});
-    // Reserve video on audio-only calls and a *second* audio transceiver on all
-    // calls. Screen audio never replaces the microphone and requires no new SDP.
-    if(!videoSender)videoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+    // A fixed transceiver order on BOTH peers: microphone, camera, screen, tab audio.
+    // This prevents switching cameras off when screens start and fixes one-way shares.
+    const mic=localMedia.getAudioTracks()[0],cam=localMedia.getVideoTracks()[0];
+    if(mic)pc.addTrack(mic,localMedia);else pc.addTransceiver('audio',{direction:'sendrecv'});
+    videoSender=cam?pc.addTrack(cam,localMedia):pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+    screenVideoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
     screenAudioSender=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
     updateScreenUi();
     pc.ontrack=event=>{
       if(!call||peerConnection!==pc)return;
-      // Second negotiated audio m-line carries optional shared-tab sound.
-      // Keep it off the microphone <audio> element so that both can play.
-      if(event.track.kind==='audio'){
-        const receivers=pc.getTransceivers?.().filter(t=>t.receiver?.track?.kind==='audio')||[];
-        const isSharedAudio=receivers.length>1&&receivers[1]?.receiver?.track===event.track;
-        if(isSharedAudio){
-          const sharedTrack=event.track;
-          const show=()=>{
-            if(peerConnection!==pc||!call)return;
-            friendSharingAudio=true;
-            if(remoteShareAudio){remoteShareAudio.srcObject=new MediaStream([sharedTrack]);void tryPlayMedia(remoteShareAudio);}
-            updateScreenUi();
-          };
-          const hide=()=>{
-            friendSharingAudio=false;
-            if(remoteShareAudio)remoteShareAudio.srcObject=null;
-            updateScreenUi();
-          };
-          sharedTrack.addEventListener('unmute',show);
-          sharedTrack.addEventListener('mute',hide);
-          sharedTrack.addEventListener('ended',hide);
-          if(!sharedTrack.muted)show();
-          return;
-        }
-      }
-      if(!remoteMedia)remoteMedia=new MediaStream();
-      if(!remoteMedia.getTracks().some(t=>t.id===event.track.id))remoteMedia.addTrack(event.track);
-      if(call.medium==='audio'&&event.track.kind==='audio'){remoteAnalyser=meter(remoteMedia);initMeter();}
-      if(event.track.kind==='video'){
-        const show=()=>{if(peerConnection!==pc||!call)return;friendScreen=call.medium==='audio';updateScreenUi();};
-        const hide=()=>{if(call&&call.medium==='audio'){friendScreen=false;updateScreenUi();}};
-        event.track.addEventListener('unmute',show);event.track.addEventListener('mute',hide);
-        if(!event.track.muted)show();
-        remoteVideo.srcObject=new MediaStream([event.track]);void tryPlayMedia(remoteVideo);
-      }
-      // Separate remote sound from picture. This allows silent video autoplay while
-      // a dedicated audio element can be enabled by a user gesture if necessary.
-      if(call.medium==='video'){
-        remoteVideo.muted=true;
-        if(event.track.kind==='video'){
-          remoteVideo.srcObject=new MediaStream(remoteMedia.getVideoTracks());
-          void tryPlayMedia(remoteVideo);
-        }else if(event.track.kind==='audio'){
-          remoteAudio.srcObject=new MediaStream(remoteMedia.getAudioTracks());
-          void tryPlayMedia(remoteAudio);
-        }
-      }else if(event.track.kind==='audio'){
-        // Preserve the already-working audio-only path from V12.8.12.
-        remoteAudio.srcObject=new MediaStream(remoteMedia.getAudioTracks());
-        remoteAudio.play().catch(()=>{showMediaPlaybackNeeded();});
+      const idx=pc.getTransceivers().indexOf(event.transceiver);
+      const track=event.track;
+      if(idx===0){ // Friend microphone, never mixed with their screen sound.
+        if(!remoteMedia)remoteMedia=new MediaStream();
+        if(!remoteMedia.getAudioTracks().some(t=>t.id===track.id))remoteMedia.addTrack(track);
+        remoteAudio.srcObject=new MediaStream([track]);remoteAudio.muted=friendMuted;
+        void tryPlayMedia(remoteAudio);
+        if(call.medium==='audio'){remoteAnalyser=meter(remoteMedia);initMeter();}
+      }else if(idx===1){ // Friend camera (independent of any screen share).
+        peerCameraTrack=track;remoteVideo.srcObject=new MediaStream([track]);remoteVideo.muted=true;
+        const toggle=()=>{if(!call||peerConnection!==pc)return;updateCameraPlaceholder();updateScreenUi();};
+        track.addEventListener('unmute',toggle);track.addEventListener('mute',toggle);track.addEventListener('ended',toggle);
+        toggle();void tryPlayMedia(remoteVideo);
+      }else if(idx===2){ // Friend screen video, never overwrites camera.
+        peerScreenTrack=track;
+        const toggle=()=>{
+          if(!call||peerConnection!==pc)return;
+          if(friendScreen&&!track.muted)showShareTile('friend',call.name,track,remoteShareAudio);
+          else removeShareTile('friend');
+          updateScreenUi();
+        };
+        track.addEventListener('unmute',toggle);track.addEventListener('mute',toggle);
+        track.addEventListener('ended',()=>{peerScreenTrack=null;removeShareTile('friend');});toggle();
+      }else if(idx===3){ // Share sound is a separate incoming audio track.
+        const show=()=>{
+          if(!call||peerConnection!==pc)return;
+          remoteShareAudio.srcObject=new MediaStream([track]);remoteShareAudio.muted=shareMuted;
+          void tryPlayMedia(remoteShareAudio);updateScreenUi();
+        };
+        const hide=()=>{remoteShareAudio.srcObject=null;updateScreenUi();};
+        track.addEventListener('unmute',show);track.addEventListener('mute',hide);track.addEventListener('ended',hide);
+        if(!track.muted)show();
       }
     };
     pc.onicecandidate=event=>{
@@ -542,7 +573,11 @@
       if(!Number.isSafeInteger(id)||id<=lastSignal)continue;
       try{
         if(item.kind==='ice'){
-          if(item.body&&typeof item.body.candidate==='string')await iceCandidate(item.body);
+          if(item.body?.vxskCamera===true){peerCameraOff=item.body.enabled!==true;updateCameraPlaceholder();}
+          else if(item.body?.vxskScreen===true){friendScreen=item.body.active===true;friendSharingAudio=friendScreen&&item.body.audio===true;
+            if(friendScreen&&peerScreenTrack&&!peerScreenTrack.muted)showShareTile('friend',call.name,peerScreenTrack,remoteShareAudio);else if(!friendScreen)removeShareTile('friend');
+            updateScreenUi();}
+          else if(item.body&&typeof item.body.candidate==='string')await iceCandidate(item.body);
         }else if(item.kind==='offer'&&call?.role==='callee'&&item.body?.type==='offer'){
           if(!localMedia||!iceReady)break; // Await media + TURN config; do not create a STUN-only peer by race.
           if(!peerConnection)makeConnection();
@@ -550,7 +585,6 @@
           await peerConnection.setRemoteDescription(item.body);
           await flushIce();
           await peerConnection.setLocalDescription(await peerConnection.createAnswer());
-          if(call.medium==='video')await waitForVideoIce(peerConnection);
           if(call)sendDescription('answer');
         }else if(item.kind==='answer'&&call?.role==='caller'&&item.body?.type==='answer'){
           if(!peerConnection||!peerConnection.localDescription)break;
@@ -659,6 +693,7 @@
     try{await request('vxsk_friend_call_answer',{p_call_id:id,p_accept:false});}catch(_){}
   }
   async function start(peerId,medium,name){
+    if(window.VXSKGroupCalls?.isActive?.()){const notice=$('community-feedback');if(notice)notice.textContent='Leave your group call before starting a private call.';return;}
     if(call){setStatus('End your current call before starting another.');present();return;}
     if(!['audio','video'].includes(medium)||!/^[a-f0-9-]{36}$/i.test(String(peerId)))return;
     const user=await currentUser();
@@ -724,31 +759,63 @@
   });
   function syncFullscreenButton(){
     if(!fullscreenButton)return;
-    const active=document.fullscreenElement===fullStage;
-    fullscreenButton.textContent=active?'EXIT FULLSCREEN ↙':'FULLSCREEN ⛶';
+    const active=document.fullscreenElement===mediaBox||document.fullscreenElement===fullStage||document.fullscreenElement===privateShares||theater;
+    const share=sharing||friendScreen;
+    fullscreenButton.textContent=active?'EXIT FULLSCREEN ↙':share?'FULLSCREEN SHARE ⛶':'FULLSCREEN VIDEO ⛶';
     fullscreenButton.setAttribute('aria-pressed',String(active));
+    if(shareExit)shareExit.hidden=!active;
+  }
+  async function exitLargeShare(){
+    if(theater){theater=false;mediaBox.classList.remove('vxsk-share-theater');privateShares?.classList.remove('vxsk-share-theater');}privateShares?.querySelectorAll('.vxsk-share-theater').forEach(x=>x.classList.remove('vxsk-share-theater'));
+    if(document.fullscreenElement===mediaBox||document.fullscreenElement===fullStage||document.fullscreenElement===privateShares){
+      try{await document.exitFullscreen();}catch(_){/* browser may already have exited */}
+    }
+    syncFullscreenButton();
   }
   fullscreenButton?.addEventListener('click',async()=>{
-    if(!call||call.state!=='accepted'||!fullStage)return;
+    if(!call||call.state!=='accepted')return;
+    if(document.fullscreenElement===mediaBox||document.fullscreenElement===fullStage||document.fullscreenElement===privateShares||theater){await exitLargeShare();return;}
+    const focusTarget=(sharing||friendScreen)&&privateShares&&!privateShares.hidden?privateShares:mediaBox;
+    if(focusTarget.hidden){setStatus('Wait for video or a screen share to start before enlarging it.');return;}
     try{
-      if(document.fullscreenElement===fullStage)await document.exitFullscreen();
-      else if(!document.fullscreenElement&&fullStage.requestFullscreen)await fullStage.requestFullscreen();
-      else setStatus('Exit the other fullscreen view before opening VXSK fullscreen.');
-    }catch(_){setStatus('Fullscreen is not available in this browser. Try a desktop browser.');}
+      // Fullscreen THE IMAGE/SOUND-SHARE SURFACE — not the surrounding call window.
+      if(!document.fullscreenElement&&focusTarget.requestFullscreen){await focusTarget.requestFullscreen();}
+      else if(!document.fullscreenElement){theater=true;focusTarget.classList.add('vxsk-share-theater');}
+      else setStatus('Exit the other fullscreen view first.');
+    }catch(_){
+      // On mobile Safari generic div.requestFullscreen is unavailable: use
+      // a fixed, viewport-sized theater overlay, while keeping call active.
+      theater=true;focusTarget.classList.add('vxsk-share-theater');
+    }
     syncFullscreenButton();
   });
+  shareExit?.addEventListener('click',()=>void exitLargeShare());
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&theater){e.preventDefault();void exitLargeShare();}});
   document.addEventListener('fullscreenchange',syncFullscreenButton);
   screenButton?.addEventListener('click',()=>{if(sharing)stopScreenShare();else void startScreenShare();});
-  cameraButton.addEventListener('click',()=>{
-    const tracks=localMedia?.getVideoTracks()||[];if(!tracks.length)return;
-    const enabled=tracks.some(track=>track.enabled);
-    tracks.forEach(track=>{track.enabled=!enabled;});
-    cameraButton.textContent=enabled?'CAMERA ON':'CAMERA OFF';
+    cameraButton.addEventListener('click',async()=>{
+    if(!call||call.state!=='accepted'||!localMedia||!videoSender)return;
+    const track=localMedia.getVideoTracks()[0];
+    if(track){track.enabled=!track.enabled;cameraButton.textContent=track.enabled?'CAMERA OFF':'CAMERA ON';queueSignal('ice',{vxskCamera:true,enabled:track.enabled});updateScreenUi();return;}
+    let stream;try{stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360}},audio:false});}
+    catch(_){setStatus('Camera unavailable or blocked. Your audio call is still connected.');return;}
+    const added=stream.getVideoTracks()[0];if(!call||!peerConnection||!added){stream.getTracks().forEach(t=>t.stop());return;}
+    localMedia.addTrack(added);
+    try{await videoSender.replaceTrack(added);}catch(_){localMedia.removeTrack(added);added.stop();return;}
+    localVideo.srcObject=new MediaStream([added]);void localVideo.play().catch(()=>{});
+    added.onended=()=>{if(localMedia?.getVideoTracks().includes(added)){localMedia.removeTrack(added);updateScreenUi();}};
+    cameraButton.textContent='CAMERA OFF';queueSignal('ice',{vxskCamera:true,enabled:true});updateScreenUi();
+  });
+  muteFriendButton?.addEventListener('click',()=>{
+    friendMuted=!friendMuted;remoteAudio.muted=friendMuted;
+    muteFriendButton.textContent=friendMuted?'UNMUTE FRIEND':'MUTE FRIEND';
+    muteFriendButton.setAttribute('aria-pressed',String(friendMuted));
   });
   window.addEventListener('pagehide',()=>{if(call){const id=call.id;stopMedia();api()?.rpc('vxsk_friend_call_end',{p_call_id:id}).catch(()=>{});}});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(call)void pollCall();else void pollInbox();}});
   // Incoming invitations (4s) and connection/signaling updates (1.25s).
   setInterval(()=>{if(!call)void pollInbox();},4000);
   setInterval(()=>{if(call)void pollCall();},1250);
   setTimeout(()=>void pollInbox(),900);
-  window.VXSKCalls=Object.freeze({start});
+  window.VXSKCalls=Object.freeze({start,isActive:()=>Boolean(call)});
 })();

@@ -21,6 +21,18 @@
   let posts=[],isBusy=false;
   const message=(txt,kind='')=>{const el=$('#editor-notice');el.textContent=txt;el.className='notice'+(kind?' '+kind:'');};
   const input = name => $('#post-'+name);
+  const isUrl=(value,hosts)=>{if(!value)return true;try{const u=new URL(value);return u.protocol==='https:'&&hosts.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch(_){return false;}};
+  const streamHosts=['youtube.com','youtu.be','twitch.tv','kick.com'];
+  const replayHosts=['youtube.com','youtu.be'];
+  const parseLinks=body=>{
+    const lines=String(body||'').split('\n');let stream='',replay='';
+    const rest=lines.filter(line=>{
+      if(/^VXSK Stream: https:\/\//i.test(line)){stream=line.replace(/^VXSK Stream: /i,'').trim();return false;}
+      if(/^VXSK Replay: https:\/\//i.test(line)){replay=line.replace(/^VXSK Replay: /i,'').trim();return false;}
+      return true;
+    });return {body:rest.join('\n').trim(),stream,replay};
+  };
+
   const makeText=(tag,content,cls)=>{const el=document.createElement(tag);el.textContent=String(content??'');if(cls)el.className=cls;return el;};
   const dateText=iso=>{const d=new Date(iso);return Number.isNaN(d.getTime())?'Invalid time':d.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Tunis'})+' Tunis';};
   const localTunis=iso=>{
@@ -42,6 +54,7 @@
     input('id').value=post.id; input('kind').value=post.kind;requireMatch();
     for(const key of ['title','game','mode','body','status']) input(key).value=post[key]||'';
     input('player-a').value=post.player_a||'';input('player-b').value=post.player_b||'';
+    const links=parseLinks(post.body);input('body').value=links.body;input('stream').value=links.stream;input('replay').value=links.replay;
     input('starts').value=localTunis(post.starts_at);input('published').checked=post.published;
     $('#post-submit').textContent='UPDATE POST ↗';
     container.scrollIntoView({behavior:'smooth',block:'start'});
@@ -92,6 +105,12 @@
       body:input('body').value.trim()||null,
       published:input('published').checked
     };
+    if(match){
+      const stream=input('stream').value.trim(),replay=input('replay').value.trim();
+      if(!isUrl(stream,streamHosts)||!isUrl(replay,replayHosts)){message('Use HTTPS links from YouTube, Twitch or Kick; replays must be YouTube.','error');return;}
+      payload.body=[payload.body,stream?'VXSK Stream: '+stream:'',replay?'VXSK Replay: '+replay:''].filter(Boolean).join('\n')||null;
+      if((payload.body||'').length>1000){message('The description and links exceed 1,000 characters. Shorten the description.','error');return;}
+    }
     if(!payload.title||match&&(!payload.player_a||!payload.player_b||!payload.mode)||!match&&!payload.body){message('Please fill in all required fields.','error');return;}
     isBusy=true;$('#post-submit').disabled=true;
     message(payload.published?'Publishing post…':'Saving private draft…');

@@ -37,12 +37,29 @@
     if(state.referee&&!referee.children.length){const opt=t('option','Publish a match before reporting');opt.value='';opt.disabled=true;referee.append(opt);}
     $('staff-referee-form').querySelector('button[type="submit"]').disabled=!referee.children.length||!referee.value;
     const fixtures=$('staff-fixture-list');fixtures.replaceChildren();
+    let readiness=new Map();
+    if(state.referee){
+      const {data:assignments,error:readyError}=await state.api.from('vxsk_hub_match_players').select('match_id,is_ready').limit(1000);
+      if(!readyError)for(const a of assignments||[]){const count=readiness.get(a.match_id)||{ready:0,total:0};count.total++;if(a.is_ready)count.ready++;readiness.set(a.match_id,count);}
+    }
     for(const m of state.matches.slice(0,30)){
       const row=t('div','','staff-arena-item');
-      row.append(t('strong',matchName(m)),t('small',(m.published?'PUBLISHED':'DRAFT / PRIVATE')+' · '+m.round_name+' · Slot '+m.bracket_slot+' · '+readable(m.starts_at)));
+      const check=readiness.get(m.id);
+      row.append(t('strong',matchName(m)),t('small',(m.published?'PUBLISHED':'DRAFT / PRIVATE')+' · '+m.round_name+' · Slot '+m.bracket_slot+' · '+readable(m.starts_at)+(check?' · READY '+check.ready+'/'+check.total:' · NO ASSIGNED PLAYERS')));
       fixtures.append(row);
     }
     if(!fixtures.children.length)fixtures.append(t('p','No tournament fixtures yet.'));
+  }
+  async function getPlayers(){
+    if(!state.owner)return;
+    const {data,error}=await state.api.rpc('vxsk_staff_player_directory');if(error)throw error;
+    for(const id of ['staff-assign-player','staff-badge-player']){
+      const select=$(id);select.replaceChildren();
+      const first=t('option','CHOOSE PLAYER');first.value='';select.append(first);
+      for(const player of data||[]){
+        const opt=t('option',player.nickname||'VXSK PLAYER');opt.value=player.user_id;select.append(opt);
+      }
+    }
   }
   async function getReports(){
     if(!state.referee)return;
@@ -82,7 +99,7 @@
     if(!state.ready||state.loading)return;
     state.loading=true;$('staff-arena-refresh').disabled=true;
     try{
-      await getMatches();await getReports();
+      await getMatches();await getReports();await getPlayers();
       notice('Tournament workspace connected to VXSK-STAGING. Draft matches stay private.');
     }catch(error){showError('Loading tournament data',error);}
     finally{state.loading=false;$('staff-arena-refresh').disabled=false;}
@@ -101,7 +118,7 @@
     const local=f.elements['event-date'].value;
     const {error}=await state.api.from('vxsk_hub_events').insert({
       title:f.elements['event-title'].value.trim(),game:f.elements['event-game'].value,
-      starts_at:new Date(local+':00+01:00').toISOString(),details:f.elements['event-details'].value.trim(),
+      starts_at:new Date(local+':00+01:00').toISOString(),details:f.elements['event-details'].value.trim(),prize:f.elements['event-prize'].value.trim(),
       published:f.elements['event-publish'].checked
     });
     if(error)throw error;

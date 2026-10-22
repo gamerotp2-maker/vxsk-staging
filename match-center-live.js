@@ -57,7 +57,21 @@
     card.append(names);
     const date=makeText('time',dateFormat(post.starts_at));
     date.dateTime=post.starts_at; card.append(date);
-    if(post.body) card.append(makeText('p',post.body,'vxsk-match-description'));
+    if(post.body){
+      const lines=String(post.body).split('\n');
+      const desc=lines.filter(line=>!/^VXSK (Stream|Replay): https:\/\//i.test(line)).join('\n').trim();
+      if(desc)card.append(makeText('p',desc,'vxsk-match-description'));
+      for(const [type,hosts] of [['Stream',['youtube.com','youtu.be','twitch.tv','kick.com']],['Replay',['youtube.com','youtu.be']]]){
+        const line=lines.find(x=>x.startsWith('VXSK '+type+': https://'));
+        if(!line)continue;
+        try{
+          const link=new URL(line.slice(('VXSK '+type+': ').length));
+          if(link.protocol!=='https:'||!hosts.some(h=>link.hostname===h||link.hostname.endsWith('.'+h)))continue;
+          const a=makeText('a',type==='Replay'?'▶ WATCH YOUTUBE REPLAY ↗':'● WATCH STREAM ↗','vxsk-match-media-link');
+          a.href=link.href;a.target='_blank';a.rel='noopener noreferrer';card.append(a);
+        }catch(_){/* hide invalid links */}
+      }
+    }
     card.append(makeText('p',(post.status||'scheduled').toUpperCase(),'match-status'));
     list.append(card);
   }

@@ -9,8 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="staff.css?v=12.8.10" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1"></script>
-<script defer="" src="supabase-config.js?v=12.8.4"></script><script defer="" src="staging-guard.js"></script><script defer="" src="staff.js?v=12.8.4"></script><script defer="" src="opponent-staff.js?v=12.8.10"></script><script defer="" src="content-editor.js"></script>
-<link href="staff-command.css?v=12.8.21" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.21"></script><script defer="" src="staff-arena.js?v=12.8.21"></script></head>
+<script defer="" src="supabase-config.js?v=12.8.4"></script><script defer="" src="staging-guard.js"></script><script defer="" src="staff.js?v=12.8.4"></script><script defer="" src="opponent-staff.js?v=12.8.10"></script><script defer="" src="content-editor.js?v=12.8.22"></script>
+<link href="staff-command.css?v=12.8.22" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.22"></script><script defer="" src="staff-arena.js?v=12.8.22"></script><script defer="" src="staff-showmatches.js?v=12.8.22"></script></head>
 <body>
 <a class="skip-link" href="#workspace">Skip to workspace</a>
 <header class="bar"><a class="brand" href="./"><img alt="VXSK" height="48" src="assets/vxsk-logo.png" width="52"/></a><div><span class="eyebrow">VXSK // AUTHORIZED PERSONNEL</span><h1>STAFF <em>COMMAND.</em></h1></div><a class="back" href="./">← BACK TO ARENA</a></header>
@@ -20,8 +20,8 @@
 <div class="welcome"><div><span class="eyebrow">SECURE OPERATIONS CENTER</span><h2>ONE STAFF <em>CONTROL CENTER.</em></h2><p>Applications, player matching, announcements, tournament fixtures and referee results — organized into one private dashboard. Your Supabase role and 2FA still control what you can do.</p></div><div class="identity"><span id="my-role">STAFF</span><small id="my-user">Signed in</small></div></div><nav aria-label="Staff command sections" class="staff-command-nav" id="staff-command-nav">
 <button aria-pressed="true" class="is-active" data-staff-tab="applications" type="button">📥 APPLICATIONS <span id="regular-inbox-count">—</span></button>
 <button aria-pressed="false" data-staff-tab="opponents" id="staff-inbox-opponents" type="button">🎯 NO OPPONENT <span id="opponents-inbox-count">—</span></button>
-<button aria-pressed="false" data-staff-tab="bulletin" type="button">📢 NEWS &amp; SHOWMATCHES</button>
-<button aria-pressed="false" data-staff-tab="tournaments" type="button">🏆 TOURNAMENT OPERATIONS</button>
+<button aria-pressed="false" data-staff-tab="bulletin" type="button">⚔ MANAGE SHOWMATCHES</button>
+<button aria-pressed="false" data-staff-tab="tournaments" type="button">🏆 MANAGE TOURNAMENTS</button>
 </nav><p class="staff-command-explainer">Everything the VXSK staff manage lives here. The Arena Hub is for players and viewers.</p>
 <section data-staff-view="applications" id="staff-view-applications"><section aria-label="Application statistics" class="stats"><div class="stat"><span>PENDING</span><strong id="count-pending">—</strong></div><div class="stat"><span>APPROVED</span><strong id="count-approved">—</strong></div><div class="stat"><span>REJECTED</span><strong id="count-rejected">—</strong></div><div class="stat"><span>ALL VISIBLE</span><strong id="count-total">—</strong></div></section><div id="regular-inbox"><div class="toolbar"><div><label for="filter-status">STATUS</label><select id="filter-status"><option value="all">All applications</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div><div><label for="filter-search">SEARCH PLAYERS</label><input id="filter-search" maxlength="80" placeholder="Username / game / mode" type="search"/></div><button id="refresh" type="button">↻ REFRESH</button></div>
 <p aria-live="polite" class="notice" id="notice" role="status"></p>
@@ -35,7 +35,11 @@
 <div class="opponent-requests-list" id="opponent-requests-list"></div>
 </section></section>
 
-<section data-staff-view="bulletin" hidden="" id="staff-view-bulletin"><section aria-labelledby="content-title" class="content-editor" hidden="" id="content-editor">
+<section data-staff-view="bulletin" hidden="" id="staff-view-bulletin">
+<div class="command-section-title"><div><span class="eyebrow">STAFF WORKFLOW / SHOWMATCHES</span><h2>PLAYER-CHOSEN <em>RIVALS.</em></h2><p>Applications → players choose opponents → accepted challenges → arrange teams → schedule → stream → YouTube replay. Only authorized editors can publish; reviewers can inspect accepted challenges.</p></div></div>
+<nav class="vxsk-workflow" aria-label="Showmatch steps"><span>1. APPLICATIONS</span><span>2. CHOOSE RIVAL</span><span>3. ACCEPT</span><span>4. FORM TEAMS</span><span>5. SCHEDULE</span><span>6. STREAM</span><span>7. REPLAY</span></nav>
+<section class="staff-arena-card" aria-labelledby="staff-challenge-heading"><h3 id="staff-challenge-heading">ACCEPTED PLAYER CHALLENGES</h3><p class="small-muted">A showmatch cannot be published until players agree. Select a challenge to prefill the editor. Team names may be edited in the showmatch form.</p><button type="button" id="staff-challenges-refresh">↻ REFRESH CHALLENGES</button><p class="notice" id="staff-challenges-notice" role="status">Checking reviewer access…</p><div class="staff-arena-list" id="staff-challenges-list"></div></section>
+<section aria-labelledby="content-title" class="content-editor" hidden="" id="content-editor">
 <div class="editor-heading"><div><span class="eyebrow">VXSK // PUBLIC CONTENT</span><h2 id="content-title">NEWS &amp; <em>SHOWMATCHES.</em></h2><p>Use this bulletin for website news and one-off showmatches (Who vs Who). Official tournament brackets and referees live in Tournament Operations.</p></div><a class="back" href="./#match-center" rel="noopener noreferrer" target="_blank">VIEW PUBLIC SECTION ↗</a></div>
 <p aria-live="polite" class="notice" id="editor-notice" role="status"></p>
 <div class="editor-grid">
@@ -49,6 +53,8 @@
 <label for="post-game">GAME *</label><select id="post-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select>
 <label for="post-mode">MODE *</label><input id="post-mode" maxlength="60" placeholder="e.g. 1v1"/>
 <div class="editor-pair"><div><label for="post-player-a">PLAYER / TEAM A *</label><input id="post-player-a" maxlength="70" placeholder="Player A"/></div><div><label for="post-player-b">PLAYER / TEAM B *</label><input id="post-player-b" maxlength="70" placeholder="Player B"/></div></div>
+<label for="post-stream">STREAM LINK (OPTIONAL — HTTPS)</label><input type="url" id="post-stream" placeholder="https://www.youtube.com/live/..." maxlength="250"/>
+<label for="post-replay">YOUTUBE REPLAY (AFTER THE MATCH)</label><input type="url" id="post-replay" placeholder="https://youtu.be/..." maxlength="250"/>
 <label for="post-starts">MATCH TIME — TUNISIA (UTC+01:00) *</label><input id="post-starts" type="datetime-local"/>
 <label for="post-status">MATCH STATUS</label><select id="post-status"><option value="scheduled">Scheduled</option><option value="live">Live</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
 </div>
@@ -70,10 +76,10 @@
 <label>REFEREE NOTES<textarea maxlength="700" name="report-notes" rows="3"></textarea></label><button type="submit">SUBMIT FOR OWNER REVIEW ↗</button>
 </form></div><div class="staff-arena-card"><h4>PENDING &amp; PAST REPORTS</h4><div class="staff-arena-list" id="staff-report-queue">Loading…</div></div></div>
 </section>
-<section class="staff-arena-block" hidden="" id="staff-arena-editor-area"><h3>02 / TOURNAMENT CALENDAR &amp; BRACKETS</h3><p class="small-muted">This is for official Arena Hub events and tournament brackets. News/showmatches are managed in the separate News tab above.</p>
+<section class="staff-arena-block" hidden="" id="staff-arena-editor-area"><h3>02 / TOURNAMENT CALENDAR &amp; BRACKETS</h3><p class="small-muted">Create tournament + prize → Participants → Brackets → Ready Check → Results → Champion. The owner controls assignments, results and champion badges.</p><nav class="vxsk-workflow" aria-label="Tournament steps"><span>1. TOURNAMENT + PRIZE</span><span>2. PARTICIPANTS</span><span>3. BRACKETS</span><span>4. READY CHECK</span><span>5. RESULTS</span><span>6. CHAMPION</span></nav>
 <div class="staff-arena-grid"><div class="staff-arena-card"><h4>NEW EVENT DATE</h4><form class="staff-arena-form" id="staff-event-form">
 <label>EVENT TITLE<input maxlength="100" minlength="4" name="event-title" required=""/></label><label>GAME<select name="event-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select></label>
-<label>DATE &amp; TIME (TUNIS)<input name="event-date" required="" type="datetime-local"/></label><label>DETAILS<textarea maxlength="500" name="event-details" rows="3"></textarea></label>
+<label>DATE &amp; TIME (TUNIS)<input name="event-date" required="" type="datetime-local"/></label><label>PRIZE / REWARD (OPTIONAL)<input maxlength="180" name="event-prize" placeholder="e.g. Trophy + featured champion"/></label><label>DETAILS<textarea maxlength="500" name="event-details" rows="3"></textarea></label>
 <label class="staff-arena-checkbox"><input name="event-publish" type="checkbox"/> PUBLISH PUBLICLY</label><button type="submit">SAVE EVENT ↗</button>
 </form></div><div class="staff-arena-card"><h4>NEW BRACKET MATCH</h4><form class="staff-arena-form" id="staff-match-form">
 <label>GAME<select name="match-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select></label><label>ROUND<input maxlength="50" name="match-round" placeholder="Quarterfinals" required=""/></label><label>SLOT<input max="128" min="1" name="match-slot" required="" type="number" value="1"/></label>
@@ -81,14 +87,14 @@
 <label>STARTS (TUNIS)<input name="match-date" type="datetime-local"/></label>
 <label class="staff-arena-checkbox"><input name="match-publish" type="checkbox"/> PUBLISH PUBLICLY</label><button type="submit">SAVE BRACKET MATCH ↗</button>
 </form></div></div>
-<div class="staff-arena-card staff-arena-summary"><h4>RECENT TOURNAMENT FIXTURES</h4><div class="staff-arena-list" id="staff-fixture-list">Loading fixtures…</div></div>
+<div class="staff-arena-card staff-arena-summary"><h4>RECENT TOURNAMENT FIXTURES</h4><div class="staff-arena-list" id="staff-fixture-list">Loading fixtures…</div><p class="small-muted">Each fixture shows how many assigned players have marked Ready. Players can check in through My Arena when the match is published.</p></div>
 </section>
 <section class="staff-arena-block" hidden="" id="staff-arena-owner-area"><h3>03 / OWNER CONTROLS</h3><p class="small-muted">Only Owner + MFA can assign participants, award badges or approve score reports. Draft matches are selectable, but Ready Check requires publication.</p>
 <div class="staff-arena-grid"><div class="staff-arena-card"><h4>ASSIGN MATCH PARTICIPANT</h4><form class="staff-arena-form" id="staff-assign-form">
-<label>MATCH<select id="staff-assign-match" name="assign-match" required=""></select></label><label>CONSENTING PLAYER USER UUID<input maxlength="36" minlength="36" name="assign-user" pattern="[0-9a-fA-F-]{36}" required=""/></label>
+<label>MATCH<select id="staff-assign-match" name="assign-match" required=""></select></label><label>PLAYER <select id="staff-assign-player" name="assign-user" required><option value="">CHOOSE PLAYER</option></select></label>
 <label>TEAM SIDE<select name="assign-side"><option value="A">SIDE A</option><option value="B">SIDE B</option></select></label><button type="submit">ASSIGN &amp; NOTIFY PLAYER ↗</button>
 </form></div><div class="staff-arena-card"><h4>AWARD BADGE</h4><form class="staff-arena-form" id="staff-badge-form">
-<label>CONSENTING PLAYER USER UUID<input maxlength="36" minlength="36" name="badge-user" pattern="[0-9a-fA-F-]{36}" required=""/></label>
+<label>PLAYER <select id="staff-badge-player" name="badge-user" required><option value="">CHOOSE PLAYER</option></select></label>
 <label>BADGE<select name="badge-type"><option>CHAMPION</option><option>FINALIST</option><option>PARTICIPANT</option><option>REFEREE</option><option>COMMUNITY HERO</option></select></label><button type="submit">AWARD BADGE ↗</button>
 </form></div></div>
 </section>

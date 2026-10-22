@@ -141,6 +141,8 @@
     }catch(err){alert(err.message);}finally{busy=false;}
   });
   $('vxsk-groups-refresh')?.addEventListener('click',refresh);
+  $('vxsk-group-call-audio')?.addEventListener('click',()=>{if(selected)void window.VXSKGroupCalls?.start(selected,'audio',title.textContent);});
+  $('vxsk-group-call-video')?.addEventListener('click',()=>{if(selected)void window.VXSKGroupCalls?.start(selected,'video',title.textContent);});
   $('vxsk-group-close')?.addEventListener('click',()=>{thread.hidden=true;selected=null;});
   inviteMore?.addEventListener('click',async()=>{
     const group=groups.find(g=>g.id===selected);

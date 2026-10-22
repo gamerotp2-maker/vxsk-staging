@@ -21,6 +21,7 @@
       window.dispatchEvent(new Event('vxsk:opponent-inbox-open'));
     }
     if(name==='tournaments')window.dispatchEvent(new Event('vxsk:staff-tournaments-open'));
+    if(name==='bulletin')window.dispatchEvent(new Event('vxsk:staff-showmatches-open'));
     // Back/refresh should not silently open a hidden area.
     try{history.replaceState(null,'','#'+name);}catch(_){/* file preview */}
   }
@@ -32,18 +33,15 @@
     }
     const chosen=location.hash.slice(1);
     open(valid.has(chosen)?chosen:'applications');
-    // Hide unusable publishing navigation for accounts without the existing editor RPC.
-    // This is only a UI convenience; Supabase continues to enforce real permissions.
+    // Showmatch queue is visible to MFA-verified reviewers; actual editing and
+    // publishing is still gated separately by can_edit_match_center + Supabase RLS.
     const api=window.VXSK_STAFF_API;
     if(api){
       try{
-        const {data,error}=await api.rpc('can_edit_match_center');
-        const bulletin=document.querySelector('[data-staff-tab="bulletin"]');
-        if(bulletin&&(error||data!==true)){
-          bulletin.hidden=true;
-          if(!document.getElementById('staff-view-bulletin').hidden)open('applications');
-        }
-      }catch(_){/* Keep sensitive editing gated by its own RPC and RLS */}
+        const {data,error}=await api.rpc('vxsk_hub_referee');
+        const tab=document.querySelector('[data-staff-tab="bulletin"]');
+        if(tab&&(error||data!==true)){tab.hidden=true;if(!document.getElementById('staff-view-bulletin').hidden)open('applications');}
+      }catch(_){/* Server remains the authority. */}
     }
   });
   window.addEventListener('hashchange',()=>{
