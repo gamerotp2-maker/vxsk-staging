@@ -966,6 +966,25 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 #vxsk-low-lag-toggle{border:1px solid #52477c;border-radius:8px;background:#171b35;color:#ded6fd;white-space:nowrap;font-size:10px;font-weight:900;letter-spacing:.035em;padding:7px 9px}
 #vxsk-low-lag-toggle[aria-pressed="true"]{border-color:#9af4c7;color:#aaf4d0;background:#1a352f}
 body.vxsk-low-lag .site-noise,body.vxsk-low-lag .particles,body.vxsk-low-lag .ambient-wash{display:none!important}
-body.vxsk-low-lag :not(.vxsk-call-panel):not(.vxsk-call-panel *){animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+/* Stop costly decorative loops without rewriting the animation timing of EVERY
+   element. Doing that made video/backdrop layers repaint and visibly flash. */
+body.vxsk-low-lag .ambient-backdrop,
+body.vxsk-low-lag .announcement-bar,
+body.vxsk-low-lag .hero::before,
+body.vxsk-low-lag .ticker-track,
+body.vxsk-low-lag .sponsor-wrap::before,
+body.vxsk-low-lag .sponsor-orbit,
+body.vxsk-low-lag .vxsk-dock-indicator{animation:none!important}
 body.vxsk-low-lag .nav-hover-panel{backdrop-filter:none}
+/* Low-lag always shows a stable screenshot, never the video's final frame.
+   Keep the video in the DOM so that toggling back on is inexpensive. */
+html.vxsk-low-lag .vxsk-hero-film,
+body.vxsk-low-lag .vxsk-hero-film{opacity:0!important;visibility:hidden!important;transition:none!important}
+html.vxsk-low-lag .vxsk-hero-video,
+body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-poster.jpg") center/cover no-repeat!important}
+/* While the browser wakes the background movie, show the stable poster until
+   the HTMLVideoElement fires `playing`. No black-frame or poster-video flash. */
+.vxsk-hero-film{opacity:0;transition:opacity .28s ease}
+.vxsk-hero-film.vxsk-film-ready{opacity:1}
+@media(prefers-reduced-motion:reduce){.vxsk-hero-film{opacity:0!important;visibility:hidden!important}}
 .vxsk-dm-reactions{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}.vxsk-dm-reactions small{font-size:10px;color:#bcaee1}.vxsk-dm-reactions button{padding:4px 6px;border-radius:7px;font-size:12px;min-width:28px}

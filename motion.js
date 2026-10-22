@@ -35,10 +35,23 @@ if (film) {
   let onscreen = true;
   const canPlay = () => !media.matches && !saveData && !document.hidden && onscreen && !document.body.classList.contains('vxsk-low-lag');
   const syncVideo = () => {
-    if (!canPlay()) { film.pause(); return; }
+    if (!canPlay()) {
+      // Hide the last decoded frame first: never display a frozen or black frame.
+      film.classList.remove('vxsk-film-ready');
+      film.pause();
+      return;
+    }
     if (!activated) { film.src = src; activated = true; }
-    film.play().catch(() => {}); // Poster remains available when autoplay is blocked.
+    // The poster remains visible until the browser actually starts the film.
+    if (!film.paused && film.readyState >= 2) {
+      film.classList.add('vxsk-film-ready');
+      return;
+    }
+    film.play().catch(() => {});
   };
+  film.addEventListener('playing', () => {
+    if (canPlay()) film.classList.add('vxsk-film-ready');
+  });
   if ('IntersectionObserver' in window) {
     onscreen = false;
     const videoObserver = new IntersectionObserver(entries => {
@@ -50,7 +63,7 @@ if (film) {
   document.addEventListener('visibilitychange', syncVideo);
   document.addEventListener('vxsk:performance-mode', syncVideo);
   media.addEventListener?.('change', syncVideo);
-  film.addEventListener('error', () => { film.pause(); film.removeAttribute('src'); film.load(); });
+  film.addEventListener('error', () => { film.classList.remove('vxsk-film-ready'); film.pause(); film.removeAttribute('src'); film.load(); });
 }
 
   const progress = document.getElementById('scroll-progress');
