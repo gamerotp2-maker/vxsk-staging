@@ -19,31 +19,35 @@
   const menuToggle = $('#menu-toggle');
   let lastTrigger = null;
 
-  // All display strings are defined here, not interpolated from a player's submission.
-  const phaseNames = new Set(['1v1', '2v2', '3v3', 'Freestyle']);
-  const setFormContext = () => {
-    const rocketLeague = gameSelect.value === 'Rocket League';
-    $$('#form-mode option').forEach(option => {
-      option.disabled = rocketLeague ? option.value === 'Interest list' : option.value !== 'Interest list';
+  // Each game has its own backend-approved mode allowlist.
+  // The SQL migration is required before non-Rocket League applications work.
+  const modes={
+    'Rocket League':['1v1','2v2','3v3','Freestyle'],
+    'League of Legends':['1v1 ARAM','5v5 ARAM',"5v5 Summoner's Rift",'Mundo Showmatch'],
+    'VALORANT':['1v1 Skirmish','5v5 Showmatch','2v2 Skirmish','Deathmatch']
+  };
+  const mateFour=$('#form-mate-four'),mateFive=$('#form-mate-five');
+  const setFormContext = (preferredMode = null) => {
+    const available=modes[gameSelect.value]||modes['Rocket League'];
+    $$('#form-mode option').forEach(option => {option.disabled=!available.includes(option.value);});
+    $$('#form-mode optgroup').forEach(group=>{group.hidden=group.label.indexOf(gameSelect.value.toUpperCase())===-1;});
+    const requested=preferredMode||modeSelect.value;
+    if(!available.includes(requested))modeSelect.value=available[0];
+    else modeSelect.value=requested;
+    const teamSize = modeSelect.value.startsWith('5v5') ? 5 : modeSelect.value.startsWith('3v3') ? 3 :
+      (modeSelect.value.startsWith('2v2') ? 2 : 1);
+    teamFields.hidden = teamSize === 1;
+    const mateFields=[mateOne,mateTwo,mateFour,mateFive];
+    mateFields.forEach((field,i)=>{
+      const active=i < teamSize-1;
+      field.required=active;
+      field.closest('.field').hidden=!active;
+      if(!active)field.value='';
     });
-    if (rocketLeague && !phaseNames.has(modeSelect.value)) modeSelect.value = '1v1';
-    if (!rocketLeague) modeSelect.value = 'Interest list';
-    const teamMode = rocketLeague && ['2v2', '3v3'].includes(modeSelect.value);
-    teamFields.hidden = !teamMode;
-    mateOne.required = teamMode;
-    const isTrio = teamMode && modeSelect.value === '3v3';
-    mateThreeWrap.hidden = !isTrio;
-    mateTwo.required = isTrio;
-    if (!teamMode) {
-      $('#form-team').value = '';
-      mateOne.value = '';
-      mateTwo.value = '';
-    } else if (!isTrio) {
-      mateTwo.value = '';
-    }
-    context.textContent = rocketLeague
-      ? `Rocket League · ${modeSelect.value}. This is a player application, not a guaranteed event spot.`
-      : `${gameSelect.value} · planned VXSK calendar. You're joining an interest list; full mode registration is not open yet.`;
+    if(teamSize===1)$('#form-team').value='';
+    context.textContent=gameSelect.value+' · '+modeSelect.value+' · '+
+      (teamSize>1?('Captain + '+(teamSize-1)+' teammate names required. '):'Solo entry. ')+
+      '2026–27 VXSK application. Subject to staff review; no place is guaranteed.';
   };
   const setContactInput = () => {
     const cfg = {
@@ -80,8 +84,7 @@
     formMessage.textContent = '';
     formMessage.className = 'form-message';
     gameSelect.value = ['Rocket League', 'VALORANT', 'League of Legends'].includes(game) ? game : 'Rocket League';
-    modeSelect.value = phaseNames.has(mode) || mode === 'Interest list' ? mode : '1v1';
-    setFormContext();
+    setFormContext(mode);
     if(window.VXSKFillRank) { window.VXSKFillRank(gameSelect.value, document.querySelector('#form-rank')); document.querySelector('#form-rank').value='Unranked'; }
     context.textContent += ' Registered account email: '+(access.user.email||'');
     dialog.showModal();
@@ -93,7 +96,7 @@
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
   dialog.addEventListener('close', () => lastTrigger?.focus());
   gameSelect.addEventListener('change', () => {setFormContext(); if(window.VXSKFillRank) { window.VXSKFillRank(gameSelect.value, document.querySelector('#form-rank')); document.querySelector('#form-rank').value='Unranked'; }});
-  modeSelect.addEventListener('change', setFormContext);
+  modeSelect.addEventListener('change', () => setFormContext());
   contactType.addEventListener('change', setContactInput);
   setFormContext();
 
@@ -110,6 +113,15 @@
       return;
     }
     submitButton.disabled = true;
+    if(gameSelect.value !== 'Rocket League'){
+      const version=await access.api.rpc('vxsk_registration_mode_version');
+      if(version.error || version.data !== '12.8.8'){
+        formMessage.className='form-message error';
+        formMessage.textContent='This game’s mode applications are not activated in STAGING. Run V12.8.8 Registration SQL first. Nothing was sent.';
+        submitButton.disabled=false;
+        return;
+      }
+    }
     formMessage.textContent = 'Submitting your signed-in VXSK application…';
     try {
       const fields = Object.fromEntries(new FormData(form).entries());

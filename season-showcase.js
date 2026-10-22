@@ -1,5 +1,5 @@
 /* VXSK three-universe calendar: dates supplied by the event organizers.
-   Staging display only; LoL and VALORANT remain interest lists in the actual registration RPC. */
+   V12.8.8 STAGING mode applications require the accompanying secure registration SQL migration. */
 'use strict';
 (() => {
   const root=document.getElementById('season-detail');
@@ -13,17 +13,17 @@
       {mode:'3v3',title:'3V3 SHOWMATCHES',from:'2026-12-25',to:'2027-01-25',description:'The ultimate team battle.'},
       {mode:'Freestyle',title:'FREESTYLE MASTERS',from:'2027-02-01',to:'2027-02-28',description:'The art of the impossible.'}
     ]},
-    lol:{game:'League of Legends',title:'LEAGUE OF LEGENDS',desc:'ARAM battles, Summoner’s Rift and a special Mundo showdown.',images:['assets/game-league-custom.webp','assets/game-league.webp','assets/game-league-custom.webp','assets/game-league.webp'],accent:'lol',months:[
-      {title:'1V1 ARAM',from:'2027-03-01',to:'2027-03-28',description:'One versus one on the Howling Abyss.'},
-      {title:'5V5 ARAM',from:'2027-04-01',to:'2027-04-28',description:'Full-team ARAM showmatches.'},
-      {title:'5V5 SUMMONER’S RIFT',from:'2027-05-01',to:'2027-05-28',description:'Five-player teams on Summoner’s Rift.'},
-      {title:'MUNDO SHOWMATCH',from:'2027-07-01',to:'2027-07-28',description:'Special Dr. Mundo-themed showmatches.'}
+    lol:{game:'League of Legends',title:'LEAGUE OF LEGENDS',desc:'ARAM battles, Summoner’s Rift and a special Mundo showdown.',images:['assets/showcase-league-jinx.webp','assets/game-league.webp','assets/game-league-custom.webp','assets/game-league.webp'],accent:'lol',months:[
+      {mode:'1v1 ARAM',title:'1V1 ARAM',from:'2027-03-01',to:'2027-03-28',description:'One versus one on the Howling Abyss.'},
+      {mode:'5v5 ARAM',title:'5V5 ARAM',from:'2027-04-01',to:'2027-04-28',description:'Full-team ARAM showmatches.'},
+      {mode:"5v5 Summoner's Rift",title:'5V5 SUMMONER’S RIFT',from:'2027-05-01',to:'2027-05-28',description:'Five-player teams on Summoner’s Rift.'},
+      {mode:'Mundo Showmatch',title:'MUNDO SHOWMATCH',from:'2027-07-01',to:'2027-07-28',description:'Special Dr. Mundo-themed showmatches.'}
     ]},
-    valorant:{game:'VALORANT',title:'VALORANT',desc:'Skirmishes, team showmatches and a points-based Deathmatch finale.',images:['assets/game-valorant-custom.webp','assets/game-valorant.webp','assets/game-valorant-new.webp','assets/game-valorant-custom.webp'],accent:'valorant',months:[
-      {title:'1V1 SKIRMISH',from:'2027-08-01',to:'2027-08-28',description:'One-on-one tactical duels.'},
-      {title:'5V5 SHOWMATCH',from:'2027-09-01',to:'2027-09-28',description:'Five-player tactical showmatches.'},
-      {title:'2V2 SKIRMISH',from:'2027-10-01',to:'2027-10-28',description:'Duo tactical battles.'},
-      {title:'DEATHMATCH — POINTS',from:'2027-11-01',to:'2027-11-28',description:'Top cumulative showmatch points wins. Official scoring rules to be confirmed.'}
+    valorant:{game:'VALORANT',title:'VALORANT',desc:'Skirmishes, team showmatches and a points-based Deathmatch finale.',images:['assets/showcase-valorant-team.webp','assets/game-valorant.webp','assets/game-valorant-new.webp','assets/game-valorant-custom.webp'],accent:'valorant',months:[
+      {mode:'1v1 Skirmish',title:'1V1 SKIRMISH',from:'2027-08-01',to:'2027-08-28',description:'One-on-one tactical duels.'},
+      {mode:'5v5 Showmatch',title:'5V5 SHOWMATCH',from:'2027-09-01',to:'2027-09-28',description:'Five-player tactical showmatches.'},
+      {mode:'2v2 Skirmish',title:'2V2 SKIRMISH',from:'2027-10-01',to:'2027-10-28',description:'Duo tactical battles.'},
+      {mode:'Deathmatch',title:'DEATHMATCH — POINTS',from:'2027-11-01',to:'2027-11-28',description:'Top cumulative showmatch points wins. Official scoring rules to be confirmed.'}
     ]}
   };
   const d = iso => new Date(iso+'T12:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -46,7 +46,7 @@
     document.getElementById('season-detail-desc').textContent=game.desc;
     document.getElementById('season-notice').textContent=key==='rocket'
       ?'Rocket League applications are open for available formats. Applying does not guarantee selection.'
-      :'The event calendar is planned, but full mode registration is not enabled yet. Join the '+game.game+' interest list to receive updates.';
+      :'The calendar is planned for 2027. Mode applications require the V12.8.8 STAGING registration migration. Selection is not guaranteed.';
     const fragment=document.createDocumentFragment();
     game.months.forEach((item,i)=>{
       const card=document.createElement('article');card.className='season-phase-card';card.style.setProperty('--entry-order',String(i));
@@ -58,10 +58,10 @@
       const timeframe=document.createElement('p');timeframe.className='season-phase-timeframe';timeframe.textContent=d(item.from)+' — '+d(item.to);
       const h=document.createElement('h4');h.textContent=item.title;
       const description=document.createElement('p');description.className='season-phase-description';description.textContent=item.description;
-      const cta=document.createElement('button');cta.type='button';cta.className='season-phase-cta';cta.textContent=key==='rocket'?'APPLY FOR '+item.mode.toUpperCase()+' ↗':'JOIN '+game.game.toUpperCase()+' INTEREST LIST ↗';
+      const cta=document.createElement('button');cta.type='button';cta.className='season-phase-cta';cta.textContent='APPLY FOR '+item.mode.toUpperCase()+' ↗';
       cta.addEventListener('click',()=>{
         if(typeof window.VXSKOpenRegistration!=='function')return;
-        window.VXSKOpenRegistration(game.game,key==='rocket'?item.mode:'Interest list',cta);
+        window.VXSKOpenRegistration(game.game,item.mode,cta);
       });
       body.append(timeframe,h,description,cta);card.append(visual,body);fragment.append(card);
     });

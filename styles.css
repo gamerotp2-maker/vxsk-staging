@@ -711,3 +711,125 @@ html.chapter-motion .section:not(.chapter-seen) .section-head{filter:brightness(
 .bulletin-column .match-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .bulletin-column .match-card,.bulletin-column .empty-state{width:100%;min-height:180px}
 @media(max-width:800px){.bulletin-columns{grid-template-columns:1fr}}
+
+/* VXSK V12.8.8 — profile dashboard + community quick access (STAGING) */
+.account-dialog:has(#auth-panel-profile:not([hidden])){
+  width:min(1130px,calc(100vw - 32px));max-width:1130px;
+  max-height:min(94dvh,1020px);border-radius:22px;
+  background:linear-gradient(135deg,#151133 0%,#0c1430 61%,#0b0e24 100%);
+}
+.account-dialog:has(#auth-panel-profile:not([hidden])) .account-shell{padding:clamp(17px,2.8vw,32px)}
+.account-dialog:has(#auth-panel-profile:not([hidden])) .account-heading{margin:12px 0 18px}
+.account-dialog:has(#auth-panel-profile:not([hidden])) .account-heading h2{font-size:clamp(37px,5vw,64px)}
+.profile-dashboard-kicker{font:800 11px/1.5 var(--body);color:#c4a4ff;letter-spacing:.17em;margin:0 0 15px}
+#auth-panel-profile .account-welcome{gap:22px;min-height:148px;border-radius:16px;
+  background:radial-gradient(ellipse at 15% 35%,rgba(96,31,197,.17),transparent 70%),linear-gradient(115deg,rgba(23,31,73,.95),rgba(14,24,59,.7));
+  border-color:rgba(144,120,230,.46);padding:21px 25px;}
+#auth-panel-profile .profile-avatar{flex-shrink:0}
+#auth-panel-profile .account-display-name{font:900 clamp(25px,3vw,38px)/1.15 var(--display);letter-spacing:.03em}
+#auth-panel-profile .account-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.13fr) minmax(0,1fr);gap:16px;align-items:start;margin:7px 0 16px}
+#auth-panel-profile .account-dashboard-grid>.account-option{min-width:0;margin:0;height:100%;border-radius:16px;padding:20px;
+  background:linear-gradient(155deg,rgba(30,25,70,.82),rgba(11,15,41,.93));border-color:rgba(145,122,219,.43)}
+#auth-panel-profile .account-dashboard-grid .my-applications{border-top:3px solid #ac63ff}
+#auth-panel-profile .account-dashboard-grid .my-opponents-block{border-top:3px solid #46adff}
+#auth-panel-profile .account-dashboard-grid h3{font:900 24px/1.15 var(--display);letter-spacing:.03em}
+#auth-panel-profile .account-dashboard-grid .my-apps-list{max-height:390px;overflow:auto;scrollbar-color:#785bca #111531}
+#auth-panel-profile .account-dashboard-grid .my-apps-item{border-radius:9px}
+#auth-panel-profile .account-dashboard-grid .opponent-status-spotlight{margin:10px 0 15px;padding:12px;border-radius:10px}
+#auth-panel-profile .account-dashboard-grid .opponent-status-spotlight-main{gap:8px}
+#auth-panel-profile .account-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0}
+#auth-panel-profile .account-settings-grid>.account-option{margin:0;border-radius:14px;min-width:0}
+#auth-panel-profile .account-settings-grid>.account-option:last-child{grid-column:1/-1}
+#auth-panel-profile .account-settings-grid #nickname-form{display:flex;flex-wrap:wrap;align-items:end;gap:9px}
+#auth-panel-profile .account-settings-grid #nickname-form label{width:100%}
+#auth-panel-profile .account-settings-grid #nickname-form input{flex:1 1 200px;min-width:0}
+#auth-panel-profile .account-settings-grid #nickname-form button{flex:0 0 auto}
+#auth-panel-profile .my-opponent-delete{border-radius:9px}
+@media(max-width:790px){
+  #auth-panel-profile .account-dashboard-grid,#auth-panel-profile .account-settings-grid{grid-template-columns:1fr}
+  #auth-panel-profile .account-settings-grid>.account-option:last-child{grid-column:auto}
+  #auth-panel-profile .account-welcome{padding:15px;min-height:0;gap:12px}
+  #auth-panel-profile .account-dashboard-grid>.account-option{padding:15px}
+}
+
+/* Player search and friends quick panel are in navigation and share the
+   same database-backed Community actions; never display demo accounts. */
+.vxsk-community-nav{display:flex;align-items:center;gap:6px;flex:0 0 auto;position:relative;z-index:3}
+.nav-player-search{display:flex;align-items:center;height:37px;border:1px solid rgba(158,139,237,.48);border-radius:12px;background:rgba(11,17,48,.86);overflow:hidden}
+.nav-player-search:focus-within{border-color:#c694ff;box-shadow:0 0 0 2px rgba(159,100,255,.16)}
+.nav-player-search input{color:#eef1ff;background:transparent;border:0;outline:0;width:clamp(120px,12.5vw,222px);min-width:0;font:600 11px var(--body);padding:8px 0 8px 12px}
+.nav-player-search input::placeholder{color:#a8abd1}
+.nav-player-search button{border:0;background:none;color:#c8abff;min-width:34px;height:35px;font-size:25px;padding:0;line-height:1}
+.nav-community-mini{display:grid;place-items:center;position:relative;min-width:36px;height:36px;border:1px solid rgba(153,140,226,.47);background:rgba(31,28,71,.85);border-radius:11px;color:#eee6ff;font:800 22px/1 var(--body);padding:0}
+.nav-community-mini:hover{border-color:#b98aff;background:rgba(82,52,160,.6)}
+.nav-friend-count{position:absolute;top:-8px;right:-5px;min-width:18px;height:18px;display:grid;place-items:center;border-radius:50%;background:#e34d9e;color:white;font:800 10px var(--body);box-shadow:0 0 9px #ce4bcb88}
+.nav-friends-panel{position:absolute;z-index:90;top:calc(100% + 17px);right:0;width:min(372px,calc(100vw - 25px));max-height:min(70dvh,550px);overflow:auto;padding:16px;border:1px solid rgba(177,140,250,.65);border-radius:17px;background:linear-gradient(160deg,rgba(20,20,54,.985),rgba(8,13,34,.995));box-shadow:0 22px 62px #02020bc7,0 0 26px #582add35;color:#f5f1ff}
+.nav-friends-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font:900 17px var(--display);letter-spacing:.06em}
+.nav-friends-top button{border:1px solid #656394;background:#222047;color:white;width:30px;height:30px;border-radius:9px;line-height:1}
+.nav-friends-helper{font:500 11px/1.5 var(--body);color:#aab7de;margin:6px 0 15px}
+.nav-friends-entries{display:grid;gap:8px}
+.nav-friends-entries>h4{margin:8px 0 1px;font:800 11px var(--body);letter-spacing:.13em;color:#9bc9ff}
+.nav-friends-entries>p{color:#c4c5dd;font-size:12px}
+.nav-friends-panel .community-entry{padding:8px;background:#10152d;flex-wrap:wrap;gap:8px}
+.nav-friends-panel .community-entry strong{font-size:15px}
+.nav-friends-panel .community-entry-actions button{padding:7px 9px;font-size:9px}
+.nav-friends-footer{margin-top:13px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.nav-friends-footer button,.nav-friends-footer a{padding:9px 10px;border:1px solid #6860a7;border-radius:9px;background:#262251;color:#efe4ff;font:800 10px var(--body);letter-spacing:.02em}
+.community-avatar{width:43px;height:43px;flex:0 0 43px;border-radius:50%;display:grid;place-items:center;overflow:hidden;border:2px solid #8666da;background:linear-gradient(145deg,#672ca7,#1a5ea0);font:900 20px/1 var(--display);color:#fff;isolation:isolate}
+.community-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.community-entry-copy{flex:1 1 120px}
+.friend-presence{display:inline-flex;gap:4px;align-items:center;margin-right:7px}
+.friend-presence::before{display:inline-block;content:"";width:7px;height:7px;border-radius:50%;background:#8e9ab4}
+.friend-presence.is-online{color:#9df3ce}
+.friend-presence.is-online::before{background:#48e9ab;box-shadow:0 0 10px rgba(57,234,169,.5)}
+.friend-presence.is-offline{color:#aab7d4}
+@media(min-width:1360px) and (max-width:1999px){
+  .vxsk-community-nav{order:1}
+  .vxsk-updates-widget{order:2}
+  #music-toggle{order:3}
+  #nav-user-chip{order:4}
+  #nav-staff-link{order:5}
+  .account-nav{order:6}
+  .nav-cta{order:7}
+}
+@media(max-width:1080px){.nav-player-search input{width:110px}}
+@media(max-width:880px){.nav-player-search input{width:70px}.nav-player-search input::placeholder{font-size:0}}
+@media(max-width:680px){
+ .nav-player-search{height:35px;min-width:34px}
+ .nav-player-search input{display:none}
+ .nav-community-mini{height:33px;min-width:33px}
+ .nav-friends-panel{position:fixed;top:76px;right:10px;max-height:calc(100dvh - 90px)}
+}
+@media(max-width:440px){.nav.shell{gap:4px}.nav-community-mini{min-width:30px;width:30px}.vxsk-community-nav{gap:3px}.nav-user-chip{max-width:47px;overflow:hidden}.nav-staff-link{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.nav-friends-panel,.nav-community-mini{transition:none!important}}
+/* Responsive nav keeps player search usable even after owner/staff login. */
+@media(max-width:1359px){
+ .nav.shell{display:flex;flex-wrap:wrap;align-content:center;height:auto;min-height:110px;padding-block:7px;column-gap:8px;row-gap:5px}
+ .nav-logo{order:0;margin-right:auto}
+ .vxsk-updates-widget{order:1}
+ #music-toggle{order:2}
+ #nav-user-chip{order:3}
+ #nav-staff-link{order:4}
+ .account-nav{order:5}
+ .nav-cta{order:6}
+ .menu-toggle{order:7}
+ .vxsk-community-nav{order:10;flex:0 0 100%;width:100%;justify-content:flex-end}
+ .nav-player-search{flex:1 1 auto;min-width:0}
+ .nav-player-search input{display:block!important;width:100%;font-size:12px;padding-left:12px}
+ .nav-player-search input::placeholder{font-size:12px}
+}
+@media(max-width:750px){
+ .nav.shell{min-height:114px;column-gap:6px}
+ #nav-user-chip{display:none!important}
+ .nav-community-mini{height:36px;width:36px;min-width:36px}
+ .nav-friends-panel{position:fixed;top:124px;right:10px}
+}
+@media(max-width:440px){
+ #nav-staff-link{padding:7px 5px;max-width:48px;font-size:8px;line-height:1.2}
+ .nav-player-search{min-width:0}
+ .nav-friends-panel{top:124px}
+}
+.community-privacy-controls{margin-top:18px;padding:15px;border:1px solid rgba(150,132,231,.42);border-radius:12px;background:rgba(10,16,47,.62);display:grid;gap:12px}
+.community-privacy-controls label{display:flex;align-items:start;gap:10px;font:600 12px/1.5 var(--body);color:#d4dcf7;cursor:pointer}
+.community-privacy-controls input{accent-color:#9955e5;width:17px;height:17px;flex:0 0 17px;margin-top:1px}
+.community-privacy-controls button{border-radius:9px;font-size:11px}
