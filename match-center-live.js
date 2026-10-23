@@ -11,7 +11,6 @@
   const query='?select=id,kind,title,game,mode,player_a,player_b,starts_at,body,status,cover_path,created_at&published=eq.true&order=created_at.desc&limit=50';
   let posts;
   try {
-    // Read through the anonymous Supabase REST API; RLS filters non-published rows.
     const response=await fetch(cfg.url+'/rest/v1/match_center_posts'+query,{headers:{apikey:cfg.publishableKey}});
     if(!response.ok)throw new Error('Public match data unavailable');
     posts=await response.json();
@@ -29,6 +28,45 @@
     const e=document.createElement(tag); e.textContent=String(value || '');
     if(className) e.className=className;
     return e;
+  };
+  const parseLinks=value=>{
+    const lines=String(value||'').split('\n');
+    let stream='',replay='',discord='';
+    const desc=lines.filter(line=>{
+      if(/^VXSK Stream: https:\/\//i.test(line)){stream=line.replace(/^VXSK Stream: /i,'').trim();return false;}
+      if(/^VXSK Replay: https:\/\//i.test(line)){replay=line.replace(/^VXSK Replay: /i,'').trim();return false;}
+      if(/^VXSK Discord: https:\/\//i.test(line)){discord=line.replace(/^VXSK Discord: /i,'').trim();return false;}
+      return true;
+    }).join('\n').trim();
+    return {desc,stream,replay,discord};
+  };
+  const safeLink=(value,hosts)=>{
+    try{
+      const link=new URL(value);
+      if(link.protocol!=='https:'||!hosts.some(h=>link.hostname===h||link.hostname.endsWith('.'+h)))return null;
+      return link;
+    }catch(_){return null;}
+  };
+  const brandFromUrl=url=>{
+    if(!url)return '';
+    if(/youtube\.com|youtu\.be/i.test(url))return 'youtube';
+    if(/kick\.com/i.test(url))return 'kick';
+    if(/discord\.gg|discord\.com/i.test(url))return 'discord';
+    if(/twitch\.tv/i.test(url))return 'twitch';
+    return 'generic';
+  };
+  const brandToken=(brand,label)=>{
+    const token=document.createElement('span');
+    token.className='vxsk-link-token brand-'+brand;
+    token.textContent=label;
+    return token;
+  };
+  const mediaLink=(href,label,brand,token)=>{
+    const a=document.createElement('a');
+    a.className='vxsk-match-media-link vxsk-brand-'+brand;
+    a.href=href; a.target='_blank'; a.rel='noopener noreferrer';
+    a.append(brandToken(brand,token), makeText('span',label,'vxsk-link-copy'));
+    return a;
   };
   const dateFormat = value => {
     const d=new Date(value);
@@ -61,21 +99,21 @@
     card.append(names);
     const date=makeText('time',dateFormat(post.starts_at));
     date.dateTime=post.starts_at; card.append(date);
-    if(post.body){
-      const lines=String(post.body).split('\n');
-      const desc=lines.filter(line=>!/^VXSK (Stream|Replay): https:\/\//i.test(line)).join('\n').trim();
-      if(desc)card.append(makeText('p',desc,'vxsk-match-description'));
-      for(const [type,hosts] of [['Stream',['youtube.com','youtu.be','twitch.tv','kick.com']],['Replay',['youtube.com','youtu.be']]]){
-        const line=lines.find(x=>x.startsWith('VXSK '+type+': https://'));
-        if(!line)continue;
-        try{
-          const link=new URL(line.slice(('VXSK '+type+': ').length));
-          if(link.protocol!=='https:'||!hosts.some(h=>link.hostname===h||link.hostname.endsWith('.'+h)))continue;
-          const a=makeText('a',type==='Replay'?'▶ WATCH YOUTUBE REPLAY ↗':'● WATCH STREAM ↗','vxsk-match-media-link');
-          a.href=link.href;a.target='_blank';a.rel='noopener noreferrer';card.append(a);
-        }catch(_){/* hide invalid links */}
-      }
+    const {desc,stream,replay,discord}=parseLinks(post.body);
+    if(desc)card.append(makeText('p',desc,'vxsk-match-description'));
+    const wrap=document.createElement('div');wrap.className='vxsk-match-media-links';
+    const streamLink=safeLink(stream,['youtube.com','youtu.be','twitch.tv','kick.com']);
+    if(streamLink){
+      const brand=brandFromUrl(streamLink.href);
+      const label=brand==='youtube'?'WATCH LIVE ON YOUTUBE ↗':brand==='kick'?'WATCH LIVE ON KICK ↗':brand==='twitch'?'WATCH LIVE ON TWITCH ↗':'WATCH STREAM ↗';
+      const token=brand==='youtube'?'▶':brand==='kick'?'K':brand==='twitch'?'T':'•';
+      wrap.append(mediaLink(streamLink.href,label,brand,token));
     }
+    const replayLink=safeLink(replay,['youtube.com','youtu.be']);
+    if(replayLink)wrap.append(mediaLink(replayLink.href,'WATCH YOUTUBE REPLAY ↗','youtube','▶'));
+    const discordLink=safeLink(discord,['discord.gg','discord.com']);
+    if(discordLink)wrap.append(mediaLink(discordLink.href,'JOIN DISCORD / CONTACT TEAM ↗','discord','◎'));
+    if(wrap.childElementCount)card.append(wrap);
     card.append(makeText('p',(post.status||'scheduled').toUpperCase(),'match-status'));
     list.append(card);
   }

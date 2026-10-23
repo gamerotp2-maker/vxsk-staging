@@ -40,8 +40,13 @@
     const unique=[...new Set((ids||[]).filter(x=>typeof x==='string'))].slice(0,20);
     if(!unique.length)return;
     try{
-      const out=await rpc('vxsk_social_avatar_lookup',{p_ids:unique});
-      if(Array.isArray(out))out.forEach(item=>{if(item.user_id&&item.avatar_path)avatarPaths.set(item.user_id,item.avatar_path);});
+      let out;
+      try{out=await rpc('vxsk_social_avatar_lookup_v2',{p_ids:unique});}
+      catch(_){out=await rpc('vxsk_social_avatar_lookup',{p_ids:unique});}
+      if(Array.isArray(out))out.forEach(item=>{
+        const ref=item.avatar_path||item.avatar_url||'';
+        if(item.user_id&&ref)avatarPaths.set(item.user_id,ref);
+      });
     }catch(_){/* If migration not applied, group text still works with initials. */}
   }
   function renderGroupPeople(members){

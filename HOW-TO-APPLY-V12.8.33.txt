@@ -1,0 +1,57 @@
+VXSK V12.8.33 FINAL LAUNCH PATCH
+
+WHAT THIS PATCH FIXES
+1. Friends avatars now load better in Community / Friends & Requests.
+   - It still shows private uploaded VXSK avatars when available.
+   - It also supports trusted Google/Discord provider avatars when available and permitted by the user.
+2. Match / showmatch posters keep a clean 16:9 presentation and fill their area without stretching.
+3. The hero season tag on the right is no longer cut off.
+4. The site now shows the 3 official clips you re-uploaded:
+   - reset-doubletap.mp4
+   - pentakill-tris.mp4
+   - ace.mp4
+5. Match cards and Arena Hub poster cards can show:
+   - YouTube / Kick live link styling
+   - YouTube replay styling
+   - Discord contact / invite link
+6. Staff dashboard showmatch editor now includes a Discord field.
+
+FILES INCLUDED
+- VXSK-V12.8.33-LAUNCH-PATCH.sql
+- Website files inside this folder
+
+DEPLOY STEPS
+A) SUPABASE
+1. Open Supabase SQL Editor for project opzqnmahfgehaewgciwg ONLY.
+2. Run: VXSK-V12.8.33-LAUNCH-PATCH.sql
+3. Wait for success.
+
+B) WEBSITE
+1. Replace the current site files with the contents of this V12.8.33 folder.
+2. Commit / push to GitHub Pages.
+3. Hard refresh the browser (Ctrl+F5).
+
+C) STAFF CONTENT FOR DISCORD BUTTON
+1. Open Staff Dashboard.
+2. Edit the showmatch / announcement post.
+3. Fill the new field: DISCORD INVITE / CONTACT.
+4. Save the post.
+5. The public match card and Arena Hub poster card will show the Discord button.
+
+IMPORTANT NOTE ABOUT THE 3 VIDEOS
+- All three clips were re-encoded in 1080p H.264 for smaller files, with clear still-image thumbnails.
+- Videos use metadata preload, play on click, and should not load all at once.
+- Playback must still be checked from the real GitHub website, including on mobile.
+
+QUICK TEST CHECKLIST
+[ ] My account photo still shows
+[ ] Friends avatars show in Friends & Requests
+[ ] Match posters look full 16:9 with no stretch
+[ ] 2026—2027 season tag fully visible
+[ ] All 3 videos appear and play
+[ ] Live / replay / Discord buttons appear on the showmatch card
+[ ] Arena Hub poster cards show platform buttons too
+
+
+NOTE: The included SQL adds vxsk_social_avatar_lookup_v2. It does not replace or drop the existing social lookup or change privacy settings.
+NOTE: Not officially launched until manual avatar, video, tournament and security checks are done.

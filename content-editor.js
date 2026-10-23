@@ -27,13 +27,15 @@
   const isUrl=(value,hosts)=>{if(!value)return true;try{const u=new URL(value);return u.protocol==='https:'&&hosts.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch(_){return false;}};
   const streamHosts=['youtube.com','youtu.be','twitch.tv','kick.com'];
   const replayHosts=['youtube.com','youtu.be'];
+  const discordHosts=['discord.gg','discord.com'];
   const parseLinks=body=>{
-    const lines=String(body||'').split('\n');let stream='',replay='';
+    const lines=String(body||'').split('\n');let stream='',replay='',discord='';
     const rest=lines.filter(line=>{
       if(/^VXSK Stream: https:\/\//i.test(line)){stream=line.replace(/^VXSK Stream: /i,'').trim();return false;}
       if(/^VXSK Replay: https:\/\//i.test(line)){replay=line.replace(/^VXSK Replay: /i,'').trim();return false;}
+      if(/^VXSK Discord: https:\/\//i.test(line)){discord=line.replace(/^VXSK Discord: /i,'').trim();return false;}
       return true;
-    });return {body:rest.join('\n').trim(),stream,replay};
+    });return {body:rest.join('\n').trim(),stream,replay,discord};
   };
 
   const makeText=(tag,content,cls)=>{const el=document.createElement(tag);el.textContent=String(content??'');if(cls)el.className=cls;return el;};
@@ -58,7 +60,7 @@
     originalCover=post.cover_path||'';coverUI?.set(cover?.url(api,originalCover)||'');
     for(const key of ['title','game','mode','body','status']) input(key).value=post[key]||'';
     input('player-a').value=post.player_a||'';input('player-b').value=post.player_b||'';
-    const links=parseLinks(post.body);input('body').value=links.body;input('stream').value=links.stream;input('replay').value=links.replay;
+    const links=parseLinks(post.body);input('body').value=links.body;input('stream').value=links.stream;input('replay').value=links.replay;input('discord').value=links.discord;
     input('starts').value=localTunis(post.starts_at);input('published').checked=post.published;
     $('#post-submit').textContent='UPDATE POST ↗';
     container.scrollIntoView({behavior:'smooth',block:'start'});
@@ -111,9 +113,9 @@
       published:input('published').checked
     };
     if(match){
-      const stream=input('stream').value.trim(),replay=input('replay').value.trim();
-      if(!isUrl(stream,streamHosts)||!isUrl(replay,replayHosts)){message('Use HTTPS links from YouTube, Twitch or Kick; replays must be YouTube.','error');return;}
-      payload.body=[payload.body,stream?'VXSK Stream: '+stream:'',replay?'VXSK Replay: '+replay:''].filter(Boolean).join('\n')||null;
+      const stream=input('stream').value.trim(),replay=input('replay').value.trim(),discord=input('discord').value.trim();
+      if(!isUrl(stream,streamHosts)||!isUrl(replay,replayHosts)||!isUrl(discord,discordHosts)){message('Use HTTPS links from YouTube, Twitch, Kick or Discord; replays must be YouTube.','error');return;}
+      payload.body=[payload.body,stream?'VXSK Stream: '+stream:'',replay?'VXSK Replay: '+replay:'',discord?'VXSK Discord: '+discord:''].filter(Boolean).join('\n')||null;
       if((payload.body||'').length>1000){message('The description and links exceed 1,000 characters. Shorten the description.','error');return;}
     }
     if(!payload.title||match&&(!payload.player_a||!payload.player_b||!payload.mode)||!match&&!payload.body){message('Please fill in all required fields.','error');return;}
@@ -129,7 +131,7 @@
       if(result.error||!result.data?.length)throw result.error||new Error('No row changed');
       const old=originalCover;if(old&&old!==payload.cover_path&&('cover_path' in payload))void cover?.discard(api,old);
       reset();await load();message('Saved successfully. '+(payload.published?'Visible in WHO VS WHO / WHEN section.':'Saved as a private draft.'),'success');
-    }catch(error){if(uploadedPath)void cover?.discard(api,uploadedPath);message('Save failed: '+String(error?.message||'Check V12.8.32 SQL, role, 2FA or fields.').slice(0,200),'error');}
+    }catch(error){if(uploadedPath)void cover?.discard(api,uploadedPath);message('Save failed: '+String(error?.message||'Check V12.8.33 SQL, role, 2FA or fields.').slice(0,200),'error');}
     finally{isBusy=false;$('#post-submit').disabled=false;}
   });
   reset();await load();

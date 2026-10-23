@@ -1,4 +1,4 @@
-/* VXSK V12.8.32 — scoped cover images; this UI does not grant any privileges. */
+/* VXSK V12.8.33 — scoped cover images; this UI does not grant any privileges. */
 'use strict';
 (() => {
   const BUCKET='vxsk-event-covers';
@@ -45,7 +45,7 @@
     const blob=await prepare(file);
     const uuid=newUuid();const path=`${user.id}/${uuid}.webp`;
     const {error}=await api.storage.from(BUCKET).upload(path,blob,{contentType:'image/webp',upsert:false,cacheControl:'3600'});
-    if(error)throw Error('Cover upload denied. Check V12.8.32 SQL + staff 2FA. ('+(error.message||error.statusCode||'storage')+')');
+    if(error)throw Error('Cover upload denied. Check V12.8.33 SQL + staff 2FA. ('+(error.message||error.statusCode||'storage')+')');
     return path;
   }
   async function discard(api,path){

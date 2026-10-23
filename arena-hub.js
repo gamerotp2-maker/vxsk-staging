@@ -1,4 +1,4 @@
-/* VXSK ARENA HUB V12.8.21 — staging only. Owner can select unpublished matches privately. */
+/* VXSK ARENA HUB V12.8.33 — staging only. Owner can select unpublished matches privately. */
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
@@ -14,6 +14,28 @@
   const empty=(msg)=>el('div',msg,'empty');
   const dateText=(date)=>{if(!date)return 'TIME TBA';const d=new Date(date);return Number.isNaN(d.valueOf())?'TIME TBA':new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Tunis',dateStyle:'medium',timeStyle:'short'}).format(d)+' (Tunis)';};
   const makeButton=(text,fn)=>{const b=el('button',text);b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await fn();}catch(e){info('Could not complete this action. Try again.','error');console.warn('Arena action:',e?.message||'error');}finally{b.disabled=false;}});return b;};
+  const parsePostLinks=value=>{
+    const lines=String(value||'').split('\n');
+    let stream='',replay='',discord='';
+    const desc=lines.filter(line=>{
+      if(/^VXSK Stream: https:\/\//i.test(line)){stream=line.replace(/^VXSK Stream: /i,'').trim();return false;}
+      if(/^VXSK Replay: https:\/\//i.test(line)){replay=line.replace(/^VXSK Replay: /i,'').trim();return false;}
+      if(/^VXSK Discord: https:\/\//i.test(line)){discord=line.replace(/^VXSK Discord: /i,'').trim();return false;}
+      return true;
+    }).join('\n').trim();
+    return {desc,stream,replay,discord};
+  };
+  const safeHubLink=(value,hosts)=>{
+    try{const url=new URL(value);return url.protocol==='https:'&&hosts.some(h=>url.hostname===h||url.hostname.endsWith('.'+h))?url:null;}catch(_){return null;}
+  };
+  const hubBrand=url=>/youtube\.com|youtu\.be/i.test(url)?'youtube':/kick\.com/i.test(url)?'kick':/discord\.gg|discord\.com/i.test(url)?'discord':/twitch\.tv/i.test(url)?'twitch':'generic';
+  const linkChip=(href,label,brand,token)=>{
+    const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';
+    a.className='vxsk-match-media-link vxsk-brand-'+brand;
+    const mark=el('span',token,'vxsk-link-token brand-'+brand);
+    const copy=el('span',label,'vxsk-link-copy');
+    a.append(mark,copy);return a;
+  };
   const card=(heading,game,status,desc)=>{const c=el('article','','arena-item');const meta=el('div','','arena-meta');if(game)meta.append(el('span',game,'arena-tag'));if(status)meta.append(el('span',status.toUpperCase(),'arena-tag status-'+status.toLowerCase()));c.append(meta,el('h3',heading));if(desc)c.append(el('p',desc));return c;};
   const handleError=(error,context)=>{if(error){console.warn('Arena',context,error.code||'unavailable');if(['42P01','PGRST205','42883'].includes(error.code)||/schema cache|does not exist/i.test(error.message||'')){info('Arena Hub database setup is incomplete. See the separate SQL setup instructions. No private data was changed.','error');}else info('Some arena features are unavailable right now. Check the database setup.','error');}return Boolean(error);};
   async function rpc(name,args={}) {
@@ -58,9 +80,26 @@
       if(poster)c.append(poster);else c.append(el('div','VXSK','vxsk-poster-fallback'));
       const body=el('div','','vxsk-poster-card-body');
       body.append(el('span',post.kind==='match'?'⚔ SHOWMATCH':'✦ ANNOUNCEMENT','vxsk-poster-tag'),el('h3',post.title));
+      const links=parsePostLinks(post.body);
       if(post.kind==='match')body.append(el('p',[post.player_a,post.player_b].filter(Boolean).join(' VS ')));
       if(post.starts_at)body.append(el('p',dateText(post.starts_at)));
-      if(post.kind==='announcement'&&post.body)body.append(el('p',post.body.slice(0,220)));
+      if(post.kind==='announcement'&&links.desc)body.append(el('p',links.desc.slice(0,220)));
+      if(post.kind==='match'&&links.desc)body.append(el('p',links.desc.slice(0,220)));
+      if(post.kind==='match'){
+        const actions=el('div','','vxsk-match-media-links');
+        const streamLink=safeHubLink(links.stream,['youtube.com','youtu.be','twitch.tv','kick.com']);
+        if(streamLink){
+          const brand=hubBrand(streamLink.href);
+          const label=brand==='youtube'?'WATCH LIVE ON YOUTUBE ↗':brand==='kick'?'WATCH LIVE ON KICK ↗':brand==='twitch'?'WATCH LIVE ON TWITCH ↗':'WATCH STREAM ↗';
+          const token=brand==='youtube'?'▶':brand==='kick'?'K':brand==='twitch'?'T':'•';
+          actions.append(linkChip(streamLink.href,label,brand,token));
+        }
+        const replayLink=safeHubLink(links.replay,['youtube.com','youtu.be']);
+        if(replayLink)actions.append(linkChip(replayLink.href,'WATCH YOUTUBE REPLAY ↗','youtube','▶'));
+        const discordLink=safeHubLink(links.discord,['discord.gg','discord.com']);
+        if(discordLink)actions.append(linkChip(discordLink.href,'JOIN DISCORD / CONTACT TEAM ↗','discord','◎'));
+        if(actions.childElementCount)body.append(actions);
+      }
       c.append(body);box.append(c);
     }
     if(!posts.length)box.append(empty('News & showmatches will appear when staff publish them.'));

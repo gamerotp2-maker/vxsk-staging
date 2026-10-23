@@ -11,19 +11,31 @@
   const navForm=$('nav-player-search-form'),navSearch=$('nav-player-search'),navFriendsToggle=$('nav-friends-toggle');
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
   const signedAvatars=new Map();
+  const avatarFallbacks=new Map();
+  const trustedRemoteAvatar=url=>typeof url==='string' && /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net|images-ext-1\.discordapp\.net|lh3\.googleusercontent\.com|[a-z0-9.-]+\.googleusercontent\.com)\//i.test(url);
+  async function lookupAvatarRefs(ids){
+    if(!client||!user||!Array.isArray(ids)||!ids.length)return [];
+    const args={p_ids:[...new Set(ids)].slice(0,20)};
+    const {data,error}=await client.rpc('vxsk_social_avatar_lookup_v2',args);
+    if(!error)return Array.isArray(data)?data:[];
+    const fallback=await client.rpc('vxsk_social_avatar_lookup',args);
+    if(fallback.error){console.warn('VXSK avatar lookup unavailable:',error?.code||fallback.error?.code||'error');return [];}
+    return Array.isArray(fallback.data)?fallback.data:[];
+  }
   // A profile can be shared even if the friends RPC temporarily omitted the path.
-  // Resolve authorized avatar paths in batches, preserving all privacy checks.
+  // Resolve authorized avatar references in batches, preserving all privacy checks.
   async function hydrateFriendsAvatars(links){
     if(!client||!user)return;
     const peers=(links||[]).map(x=>x.peer_id).filter(Boolean);
     for(let i=0;i<peers.length;i+=20){
-      const ids=[...new Set(peers.slice(i,i+20))];
-      const {data,error}=await client.rpc('vxsk_social_avatar_lookup',{p_ids:ids});
-      if(error){console.warn('VXSK avatar lookup unavailable:',error?.code||'error');return;}
-      for(const item of data||[]){
-        if(!item.user_id||!item.avatar_path)continue;
+      const items=await lookupAvatarRefs(peers.slice(i,i+20));
+      for(const item of items){
+        if(!item.user_id)continue;
+        const ref=item.avatar_path||item.avatar_url||'';
+        if(item.avatar_path&&item.avatar_url)avatarFallbacks.set(item.avatar_path,item.avatar_url);
+        if(!ref)continue;
         for(const target of document.querySelectorAll('.community-avatar[data-vxsk-peer]')){
-          if(target.dataset.vxskPeer===item.user_id)void addAvatar(target,item.user_id,item.avatar_path);
+          if(target.dataset.vxskPeer===item.user_id)void addAvatar(target,item.user_id,ref);
         }
       }
     }
@@ -137,7 +149,7 @@
     if((user?.id||null)!==lastIdentity){
       lastIdentity=user?.id||null;
       snapshot=null;peer=null;chat.hidden=true;messages.replaceChildren();
-      signedAvatars.clear();renderMiniFriends([]);
+      signedAvatars.clear();avatarFallbacks.clear();renderMiniFriends([]);
       friendsEl.replaceChildren(el('p',user?'Refreshing friends…':'Sign in to manage friends.'));
       if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');document.dispatchEvent(new Event('vxsk:friends-panel-change'));}
     }
@@ -158,25 +170,42 @@
   // Avatars live in a private Supabase bucket. Request a short-lived signed
   // URL only for paths returned by an authorized RPC. Avatar failures must
   // NEVER stop rendering a request or its ACCEPT / REJECT actions.
-  async function addAvatar(target,peerId,path){
-    if(!target || !peerId || typeof path!=='string' || !path.startsWith(peerId+'/'))return;
+  async function addAvatar(target,peerId,avatarRef){
+    if(!target || !peerId || typeof avatarRef!=='string')return;
     const storage=client?.storage;
-    if(!storage)return;
     try{
-      const cached=signedAvatars.get(path);
+      const key=avatarRef;
+      const cached=signedAvatars.get(key);
       let src=cached && cached.expires>Date.now()+30000 ? cached.url : null;
       if(!src){
-        const {data,error}=await storage.from('vxsk-avatars').createSignedUrl(path,600);
-        if(error || !data?.signedUrl){console.warn('VXSK avatar signed URL unavailable:',error?.statusCode||error?.code||'storage-policy');return;}
-        src=data.signedUrl;
-        signedAvatars.set(path,{url:src,expires:Date.now()+570000});
+        if(avatarRef.startsWith(peerId+'/')){
+          if(!storage)return;
+          const {data,error}=await storage.from('vxsk-avatars').createSignedUrl(avatarRef,600);
+          if(error || !data?.signedUrl){
+            console.warn('VXSK avatar signed URL unavailable:',error?.statusCode||error?.code||'storage-policy');
+            const fallback=avatarFallbacks.get(avatarRef);
+            if(fallback && trustedRemoteAvatar(fallback)){avatarFallbacks.delete(avatarRef);void addAvatar(target,peerId,fallback);}
+            return;
+          }
+          src=data.signedUrl;
+          signedAvatars.set(key,{url:src,expires:Date.now()+570000});
+        }else if(trustedRemoteAvatar(avatarRef)){
+          src=avatarRef;
+          signedAvatars.set(key,{url:src,expires:Date.now()+570000});
+        }else return;
       }
       if(!target.isConnected || lastIdentity!==user?.id)return;
       const img=document.createElement('img');
-      img.alt='';img.decoding='async';img.loading='lazy';
+      img.alt='';img.decoding='async';img.loading='lazy';img.referrerPolicy='no-referrer';
       // Keep the fallback initial in place until the image actually loads.
       img.onload=()=>{if(target.isConnected && lastIdentity===user?.id)target.replaceChildren(img);};
-      img.onerror=()=>{signedAvatars.delete(path);};
+      img.onerror=()=>{
+        signedAvatars.delete(key);
+        const fallback=avatarFallbacks.get(key);
+        if(fallback && trustedRemoteAvatar(fallback) && target.isConnected){
+          avatarFallbacks.delete(key);void addAvatar(target,peerId,fallback);
+        }
+      };
       img.src=src;
     }catch(_){/* A missing/expired avatar is cosmetic; the user actions stay visible. */}
   }
@@ -444,12 +473,28 @@
   // Expose only the current accepted-friends snapshot and opt-in avatars to
   // the call UI. Storage permissions still verify every signed URL request.
   window.VXSKCommunity=Object.freeze({
-    refreshFriendAvatar:async (node,id)=>{await refreshState(); const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);if(item?.avatar_path&&node?.isConnected)await addAvatar(node,id,item.avatar_path);},
+    refreshFriendAvatar:async (node,id)=>{
+      await refreshState();
+      const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);
+      let ref=item?.avatar_path||item?.avatar_url||'';
+      if(!ref){
+        const found=await lookupAvatarRefs([id]);
+        if(found[0]?.avatar_path&&found[0]?.avatar_url)avatarFallbacks.set(found[0].avatar_path,found[0].avatar_url);
+        ref=found[0]?.avatar_path||found[0]?.avatar_url||'';
+      }
+      if(ref&&node?.isConnected)await addAvatar(node,id,ref);
+    },
     friend: id=>(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id)||null,
     addVisibleAvatar: async (node,id,path)=>{if(node&&id&&path)await addAvatar(node,id,path);},
     addFriendAvatar: async (node,id)=>{
       const item=(snapshot?.links||[]).find(x=>x.status==='accepted'&&x.peer_id===id);
-      if(item?.avatar_path)await addAvatar(node,id,item.avatar_path);
+      let ref=item?.avatar_path||item?.avatar_url||'';
+      if(!ref){
+        const found=await lookupAvatarRefs([id]);
+        if(found[0]?.avatar_path&&found[0]?.avatar_url)avatarFallbacks.set(found[0].avatar_path,found[0].avatar_url);
+        ref=found[0]?.avatar_path||found[0]?.avatar_url||'';
+      }
+      if(ref)await addAvatar(node,id,ref);
     }
   });
   handleSearch();

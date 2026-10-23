@@ -1,7 +1,7 @@
 /* VXSK event posters */
 .vxsk-cover-picker-preview{width:min(100%,420px);aspect-ratio:16/9;border:1px dashed #8b72ce;border-radius:12px;background:linear-gradient(140deg,#322060,#101733);display:flex;align-items:center;justify-content:center;overflow:hidden;color:#cbbde8;font-size:12px;text-align:center;padding:8px;margin:6px 0}
 .vxsk-cover-picker-preview img{width:100%;height:100%;object-fit:cover}
-.vxsk-event-cover{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:linear-gradient(130deg,#402477,#142958)}
+.vxsk-event-cover{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center center;border-radius:12px;background:linear-gradient(130deg,#402477,#142958)}
 .match-card .vxsk-event-cover{margin:-6px 0 4px;border-radius:10px}
 .vxsk-poster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}
 .vxsk-poster-card{overflow:hidden;border:1px solid #554080;border-radius:15px;background:#15112f;min-width:0}
