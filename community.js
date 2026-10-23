@@ -1,4 +1,4 @@
-/* VXSK V12.8.28 — desktop/mobile friends, avatar-safe rendering; automatic verified-account discovery; accepted-friends-only messaging and consensual showmatch challenges. */
+/* VXSK V12.8.36 — social panel polish over V12.8.35: icons, deduplicated presence, mini-panel Block. */
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
@@ -13,6 +13,15 @@
   let friendsRefreshVersion=0;
   const navForm=$('nav-player-search-form'),navSearch=$('nav-player-search'),navFriendsToggle=$('nav-friends-toggle');
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
+  // Load isolated style overrides so the updated social panel never overwrites
+  // the visitor's existing cinematic-video CSS, call UI, or homepage markup.
+  if(!document.querySelector('link[data-vxsk-social-polish]')){
+    const theme=document.createElement('link');
+    theme.rel='stylesheet';
+    theme.href='vxsk-social-polish.css?v=12.8.36';
+    theme.dataset.vxskSocialPolish='true';
+    document.head.append(theme);
+  }
   const signedAvatars=new Map();
   const avatarFallbacks=new Map();
   const trustedRemoteAvatar=url=>typeof url==='string' && /^https:\/\/(cdn\.discordapp\.com|media\.discordapp\.net|images-ext-1\.discordapp\.net|lh3\.googleusercontent\.com|[a-z0-9.-]+\.googleusercontent\.com)\//i.test(url);
@@ -136,8 +145,39 @@
     }
     lastAlertState={requests,unread,total,ready:true};
   }
+  const iconPaths={
+    'CHALLENGE':['M6.5 6.5 17.5 17.5','M17.5 6.5 6.5 17.5','M6 6 3 3','M18 18 21 21'],
+    'DM':['M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3H13a8.48 8.48 0 0 1 8 8v.5z'],
+    'AUDIO':['M11 5 6 9H3v6h3l5 4V5z','M15.5 8.5a5 5 0 0 1 0 7','M19 5a10 10 0 0 1 0 14'],
+    'VIDEO':['m23 7-7 5 7 5V7z','M1 7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7z'],
+    'BLOCK':['M10.9 2.1a10 10 0 1 0 11 11','M3 3l18 18'],
+    'UNBLOCK':['M3 3l18 18','M19.5 19.5A10 10 0 0 1 4 6','M20 9a10 10 0 0 1-2-4'],
+    'ACCEPT':['M20 6 9 17l-5-5'],
+    'REJECT':['M18 6 6 18','M6 6l12 12'],
+    'MESSAGE':['M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3H13a8.48 8.48 0 0 1 8 8v.5z'],
+    'ADD':['M12 5v14','M5 12h14'],
+    'REQUEST':['M12 5v14','M5 12h14'],
+    'REFRESH':['M20 11a8 8 0 1 0-2.2 5.6','M20 4v7h-7'],
+  };
+  const makeIcon=(label)=>{
+    const key=String(label||'').toUpperCase();
+    const name=Object.keys(iconPaths).find(k=>key.startsWith(k));
+    if(!name)return null;
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');
+    svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');
+    svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+    svg.setAttribute('aria-hidden','true');svg.classList.add('vxsk-social-icon');
+    for(const d of iconPaths[name]){
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',d);svg.append(path);
+    }
+    return svg;
+  };
   function action(label,callback,variant=''){
-    const button=el('button',label,'community-action '+variant);button.type='button';button.addEventListener('click',async()=>{
+    const button=el('button',label,'community-action '+variant);button.type='button';
+    const ico=makeIcon(label);if(ico)button.prepend(ico);
+    button.addEventListener('click',async()=>{
       button.disabled=true;
       try{await callback();}catch(e){note('Request failed. Please try again.');console.warn('VXSK community:',e?.message||'error');}
       finally{button.disabled=false;}
@@ -268,11 +308,17 @@
     }
     if(accepted.length){navFriendsEntries.append(el('h4','FRIENDS ('+accepted.length+')'));
       for(const item of accepted.sort((a,b)=>Number(b.online===true)-Number(a.online===true))){
-        navFriendsEntries.append(makeEntry(item.nickname||'VXSK PLAYER',item.online?'Online':'Offline',[
+        navFriendsEntries.append(makeEntry(item.nickname||'VXSK PLAYER','FRIEND',[
           action('CHALLENGE',()=>{showCommunity();return challengeFriend(item.peer_id,item.nickname||'PLAYER');}),
           action('DM',()=>{showCommunity();return openChat(item.peer_id,item.nickname||'PLAYER');}),
           action('AUDIO',()=>window.VXSKCalls?.start(item.peer_id,'audio',item.nickname||'PLAYER')),
-          action('VIDEO',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER'))
+          action('VIDEO',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER')),
+          action('BLOCK',async()=>{
+            if(!confirm('Block '+(item.nickname||'this player')+'? You will no longer be friends or receive their private messages.'))return;
+            const r=await rpc('vxsk_social_block',{p_peer:item.peer_id,p_block:true});
+            if(r.ok&&r.data){if(peer===item.peer_id)closeChat();note('Player blocked. Manage blocked players in MY BLOCKLIST.');await refreshState();}
+            else if(r.ok)note('Block could not be completed. Refresh and try again.');
+          },'danger')
         ],item.peer_id,item.avatar_path,Boolean(item.online)));
       }
     }
