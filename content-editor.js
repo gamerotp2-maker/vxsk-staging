@@ -19,8 +19,11 @@
   if(permissionError || allowed!==true) return;
   container.hidden=false;
   let posts=[],isBusy=false;
-  const message=(txt,kind='')=>{const el=$('#editor-notice');el.textContent=txt;el.className='notice'+(kind?' '+kind:'');};
+  const cover=window.VXSKCover;let originalCover='';
   const input = name => $('#post-'+name);
+  const coverUI=cover?.preview(input('cover'),$('#post-cover-preview'),$('#post-cover-remove'));
+  const coverField=()=>input('cover')?.files?.[0]||null;
+  const message=(txt,kind='')=>{const el=$('#editor-notice');el.textContent=txt;el.className='notice'+(kind?' '+kind:'');};
   const isUrl=(value,hosts)=>{if(!value)return true;try{const u=new URL(value);return u.protocol==='https:'&&hosts.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch(_){return false;}};
   const streamHosts=['youtube.com','youtu.be','twitch.tv','kick.com'];
   const replayHosts=['youtube.com','youtu.be'];
@@ -47,11 +50,12 @@
     input('body').required=!match;
   };
   input('kind').addEventListener('change',requireMatch);
-  function reset(){ $('#post-form').reset();input('id').value='';requireMatch();$('#post-submit').textContent='SAVE POST ↗';}
+  function reset(){ $('#post-form').reset();input('id').value='';originalCover='';coverUI?.reset();requireMatch();$('#post-submit').textContent='SAVE POST ↗';}
   $('#post-reset').addEventListener('click',reset);
   $('#posts-refresh').addEventListener('click',load);
   function edit(post){
     input('id').value=post.id; input('kind').value=post.kind;requireMatch();
+    originalCover=post.cover_path||'';coverUI?.set(cover?.url(api,originalCover)||'');
     for(const key of ['title','game','mode','body','status']) input(key).value=post[key]||'';
     input('player-a').value=post.player_a||'';input('player-b').value=post.player_b||'';
     const links=parseLinks(post.body);input('body').value=links.body;input('stream').value=links.stream;input('replay').value=links.replay;
@@ -66,12 +70,13 @@
     try{
       const {error}=await api.from('match_center_posts').delete().eq('id',post.id);
       if(error)throw error;
+      if(post.cover_path)void cover?.discard(api,post.cover_path);
       if(input('id').value===post.id)reset();await load();message('Post deleted.','success');
     }catch(_){message('Could not delete. Check role, 2FA and RLS.','error');}
     finally{isBusy=false;}
   }
   async function load(){
-    const {data,error}=await api.from('match_center_posts').select('id,kind,title,game,mode,player_a,player_b,starts_at,body,status,published,created_at,updated_at').order('created_at',{ascending:false}).limit(100);
+    const {data,error}=await api.from('match_center_posts').select('id,kind,title,game,mode,player_a,player_b,starts_at,body,status,published,cover_path,created_at,updated_at').order('created_at',{ascending:false}).limit(100);
     const list=$('#editor-posts');list.replaceChildren();
     if(error){list.append(makeText('p','Cannot load posts. Check whether SETUP-CONTENT-EDITOR.sql was run and 2FA is verified.','muted'));return;}
     posts=data||[];
@@ -85,7 +90,7 @@
       const actions=makeText('div','','editor-buttons');
       const editBtn=makeText('button','EDIT');editBtn.type='button';editBtn.addEventListener('click',()=>edit(post));
       const delBtn=makeText('button','DELETE','editor-secondary');delBtn.type='button';delBtn.addEventListener('click',()=>remove(post));
-      actions.append(editBtn,delBtn);row.append(top,detail,actions);list.append(row);
+      actions.append(editBtn,delBtn);const poster=cover?.image(api,post.cover_path);if(poster)row.append(poster);row.append(top,detail,actions);list.append(row);
     }
   }
   $('#post-form').addEventListener('submit',async e=>{
@@ -114,13 +119,17 @@
     if(!payload.title||match&&(!payload.player_a||!payload.player_b||!payload.mode)||!match&&!payload.body){message('Please fill in all required fields.','error');return;}
     isBusy=true;$('#post-submit').disabled=true;
     message(payload.published?'Publishing post…':'Saving private draft…');
+    let uploadedPath='';
     try{
+      if(coverField()){if(!cover)throw Error('Cover module did not load.');uploadedPath=await cover.upload(api,coverField());payload.cover_path=uploadedPath;}
+      else if(coverUI?.removed)payload.cover_path=null;
       const uuid=input('id').value;
       const result=uuid?await api.from('match_center_posts').update(payload).eq('id',uuid).select('id'):
         await api.from('match_center_posts').insert(payload).select('id');
       if(result.error||!result.data?.length)throw result.error||new Error('No row changed');
+      const old=originalCover;if(old&&old!==payload.cover_path&&('cover_path' in payload))void cover?.discard(api,old);
       reset();await load();message('Saved successfully. '+(payload.published?'Visible in WHO VS WHO / WHEN section.':'Saved as a private draft.'),'success');
-    }catch(_){message('Save refused. Check database setup, account role, 2FA or post fields.','error');}
+    }catch(error){if(uploadedPath)void cover?.discard(api,uploadedPath);message('Save failed: '+String(error?.message||'Check V12.8.32 SQL, role, 2FA or fields.').slice(0,200),'error');}
     finally{isBusy=false;$('#post-submit').disabled=false;}
   });
   reset();await load();

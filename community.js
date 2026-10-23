@@ -11,6 +11,23 @@
   const navForm=$('nav-player-search-form'),navSearch=$('nav-player-search'),navFriendsToggle=$('nav-friends-toggle');
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
   const signedAvatars=new Map();
+  // A profile can be shared even if the friends RPC temporarily omitted the path.
+  // Resolve authorized avatar paths in batches, preserving all privacy checks.
+  async function hydrateFriendsAvatars(links){
+    if(!client||!user)return;
+    const peers=(links||[]).map(x=>x.peer_id).filter(Boolean);
+    for(let i=0;i<peers.length;i+=20){
+      const ids=[...new Set(peers.slice(i,i+20))];
+      const {data,error}=await client.rpc('vxsk_social_avatar_lookup',{p_ids:ids});
+      if(error){console.warn('VXSK avatar lookup unavailable:',error?.code||'error');return;}
+      for(const item of data||[]){
+        if(!item.user_id||!item.avatar_path)continue;
+        for(const target of document.querySelectorAll('.community-avatar[data-vxsk-peer]')){
+          if(target.dataset.vxskPeer===item.user_id)void addAvatar(target,item.user_id,item.avatar_path);
+        }
+      }
+    }
+  }
   let presenceMissing=false;
   let lastAlertState={requests:0,unread:0,total:0,ready:false};
   let alertSoundUnlocked=false;
@@ -150,7 +167,7 @@
       let src=cached && cached.expires>Date.now()+30000 ? cached.url : null;
       if(!src){
         const {data,error}=await storage.from('vxsk-avatars').createSignedUrl(path,600);
-        if(error || !data?.signedUrl)return;
+        if(error || !data?.signedUrl){console.warn('VXSK avatar signed URL unavailable:',error?.statusCode||error?.code||'storage-policy');return;}
         src=data.signedUrl;
         signedAvatars.set(path,{url:src,expires:Date.now()+570000});
       }
@@ -159,7 +176,7 @@
       img.alt='';img.decoding='async';img.loading='lazy';
       // Keep the fallback initial in place until the image actually loads.
       img.onload=()=>{if(target.isConnected && lastIdentity===user?.id)target.replaceChildren(img);};
-      img.onerror=()=>{};
+      img.onerror=()=>{signedAvatars.delete(path);};
       img.src=src;
     }catch(_){/* A missing/expired avatar is cosmetic; the user actions stay visible. */}
   }
@@ -172,7 +189,7 @@
 
     const card=el('article',undefined,'community-entry');
     const avatar=avatarEl(title,icon);card.append(avatar);
-    if(peerId&&avatarPath)void addAvatar(avatar,peerId,avatarPath);
+    if(peerId){avatar.dataset.vxskPeer=peerId;if(avatarPath)void addAvatar(avatar,peerId,avatarPath);}
     const words=el('div',undefined,'community-entry-copy');
     const heading=el('strong',title);words.append(heading);
     const sub=el('small',desc);
@@ -246,7 +263,7 @@
   }
   async function refreshState(){
     if(!await getSession()){friendsEl.replaceChildren(el('p','Sign in to manage friends.'));renderMiniFriends([]);return;}
-    const response=await rpc('vxsk_social_my_state');if(!response.ok){friendsEl.replaceChildren(el('p','Community setup required in staging.'));return;}
+    const response=await rpc('vxsk_social_my_state');if(!response.ok){friendsEl.replaceChildren(el('p','Community setup required.'));return;}
     snapshot=response.data||{};
     if(privacyControls)privacyControls.hidden=false;
     if(sharePresence)sharePresence.checked=Boolean(snapshot.profile?.share_presence);
@@ -254,6 +271,7 @@
     const links=Array.isArray(snapshot.links)?snapshot.links:[];
     const blocks=Array.isArray(snapshot.blocked)?snapshot.blocked:[];
     renderMiniFriends(links);
+    void hydrateFriendsAvatars(links);
     await refreshAlerts({silent:true});
     if(!links.some(x=>x.status==='accepted'||x.status==='pending')&&!blocks.length) friendsEl.append(el('p','No friends or invitations yet.')); 
     const sortedLinks=[

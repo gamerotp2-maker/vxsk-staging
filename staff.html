@@ -9,8 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="staff.css?v=12.8.10" rel="stylesheet"/>
 <script defer="" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1"></script>
-<script defer="" src="supabase-config.js?v=12.8.4"></script><script defer="" src="staging-guard.js"></script><script defer="" src="staff.js?v=12.8.4"></script><script defer="" src="opponent-staff.js?v=12.8.10"></script><script defer="" src="content-editor.js?v=12.8.22"></script>
-<link href="staff-command.css?v=12.8.29" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.29"></script><script defer="" src="staff-arena.js?v=12.8.22"></script><script defer="" src="staff-showmatches.js?v=12.8.22"></script><script defer src="owner-staff-manager.js?v=12.8.31"></script></head>
+<script defer="" src="supabase-config.js?v=12.8.4"></script><script defer="" src="staging-guard.js"></script><script defer="" src="staff.js?v=12.8.4"></script><script defer="" src="opponent-staff.js?v=12.8.10"></script><script defer src="vxsk-cover-utils.js?v=12.8.32"></script><script defer src="content-editor.js?v=12.8.32"></script>
+<link href="staff-command.css?v=12.8.29" rel="stylesheet"/><script defer="" src="staff-command.js?v=12.8.29"></script><script defer="" src="staff-arena.js?v=12.8.32"></script><script defer="" src="staff-showmatches.js?v=12.8.22"></script><script defer src="owner-staff-manager.js?v=12.8.31"></script><link rel="stylesheet" href="vxsk-cover.css?v=12.8.32"/></head>
 <body>
 <a class="skip-link" href="#workspace">Skip to workspace</a>
 <header class="bar"><a class="brand" href="./"><img alt="VXSK" height="48" src="assets/vxsk-logo.png" width="52"/></a><div><span class="eyebrow">VXSK // AUTHORIZED PERSONNEL</span><h1>STAFF <em>COMMAND.</em></h1></div><a class="back" href="./">← BACK TO ARENA</a></header>
@@ -60,6 +60,8 @@
 <label for="post-status">MATCH STATUS</label><select id="post-status"><option value="scheduled">Scheduled</option><option value="live">Live</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
 </div>
 <label for="post-body">PUBLIC DESCRIPTION <span class="muted-inline">(required for announcements)</span></label><textarea id="post-body" maxlength="1000" placeholder="News for VXSK players and viewers" rows="4"></textarea>
+<label for="post-cover">EVENT POSTER / COVER IMAGE (OPTIONAL · 16:9 · MAX 3 MB)</label><input id="post-cover" type="file" accept="image/png,image/jpeg,image/webp"/>
+<div class="vxsk-cover-picker-preview" id="post-cover-preview" aria-live="polite">No image selected</div><button class="editor-secondary" id="post-cover-remove" type="button">REMOVE POSTER</button>
 <label class="publish-check"><input id="post-published" type="checkbox"/> <span>Publish on the website now (uncheck to save as draft)</span></label>
 <div class="editor-buttons"><button id="post-submit" type="submit">SAVE POST ↗</button><button class="editor-secondary" id="post-reset" type="button">CLEAR / NEW</button></div>
 </form>
@@ -68,7 +70,7 @@
 </div>
 </section></section>
 <section data-staff-view="tournaments" hidden="" id="staff-view-tournaments">
-<div class="command-section-title"><div><span class="eyebrow">STAFF ONLY / STAGING</span><h2>TOURNAMENT <em>OPERATIONS.</em></h2><p>One place for fixtures, events, referee reports, owner assignments and awards. Public view stays in Arena Hub.</p></div><a class="back" href="arena.html" rel="noopener noreferrer" target="_blank">VIEW PLAYER ARENA ↗</a></div>
+<div class="command-section-title"><div><span class="eyebrow">STAFF ONLY / VERIFIED ACCESS</span><h2>TOURNAMENT <em>OPERATIONS.</em></h2><p>One place for fixtures, events, referee reports, owner assignments and awards. Public view stays in Arena Hub.</p></div><a class="back" href="arena.html" rel="noopener noreferrer" target="_blank">VIEW PLAYER ARENA ↗</a></div>
 <p aria-live="polite" class="notice" id="staff-arena-message" role="status">Checking tournament permissions…</p>
 <div class="staff-arena-links"><button id="staff-arena-refresh" type="button">↻ REFRESH TOURNAMENT DATA</button><span id="staff-arena-role-note">Checking staff permissions…</span></div>
 <section class="staff-arena-block" hidden="" id="staff-arena-referee-area"><h3>01 / REFEREE DESK</h3><p class="small-muted">Submit proposed scores. Only the MFA-verified Owner can approve and publish final results.</p>
@@ -81,11 +83,13 @@
 <div class="staff-arena-grid"><div class="staff-arena-card"><h4>NEW EVENT DATE</h4><form class="staff-arena-form" id="staff-event-form">
 <label>EVENT TITLE<input maxlength="100" minlength="4" name="event-title" required=""/></label><label>GAME<select name="event-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select></label>
 <label>DATE &amp; TIME (TUNIS)<input name="event-date" required="" type="datetime-local"/></label><label>PRIZE / REWARD (OPTIONAL)<input maxlength="180" name="event-prize" placeholder="e.g. Trophy + featured champion"/></label><label>DETAILS<textarea maxlength="500" name="event-details" rows="3"></textarea></label>
+<label>EVENT POSTER (OPTIONAL · 16:9 · MAX 3 MB)<input name="event-cover" type="file" accept="image/png,image/jpeg,image/webp"/></label><div class="vxsk-cover-picker-preview" id="staff-event-cover-preview">No image selected</div>
 <label class="staff-arena-checkbox"><input name="event-publish" type="checkbox"/> PUBLISH PUBLICLY</label><button type="submit">SAVE EVENT ↗</button>
 </form></div><div class="staff-arena-card"><h4>NEW BRACKET MATCH</h4><form class="staff-arena-form" id="staff-match-form">
 <label>GAME<select name="match-game"><option>Rocket League</option><option>VALORANT</option><option>League of Legends</option></select></label><label>ROUND<input maxlength="50" name="match-round" placeholder="Quarterfinals" required=""/></label><label>SLOT<input max="128" min="1" name="match-slot" required="" type="number" value="1"/></label>
 <div class="staff-arena-pair"><label>SIDE A NAME<input maxlength="60" name="match-a" required=""/></label><label>SIDE B NAME<input maxlength="60" name="match-b" required=""/></label></div>
 <label>STARTS (TUNIS)<input name="match-date" type="datetime-local"/></label>
+<label>BRACKET POSTER (OPTIONAL · 16:9 · MAX 3 MB)<input name="match-cover" type="file" accept="image/png,image/jpeg,image/webp"/></label><div class="vxsk-cover-picker-preview" id="staff-match-cover-preview">No image selected</div>
 <label class="staff-arena-checkbox"><input name="match-publish" type="checkbox"/> PUBLISH PUBLICLY</label><button type="submit">SAVE BRACKET MATCH ↗</button>
 </form></div></div>
 <div class="staff-arena-card staff-arena-summary"><h4>RECENT TOURNAMENT FIXTURES</h4><div class="staff-arena-list" id="staff-fixture-list">Loading fixtures…</div><p class="small-muted">Each fixture shows how many assigned players have marked Ready. Players can check in through My Arena when the match is published.</p></div>

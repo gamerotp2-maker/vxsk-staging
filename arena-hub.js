@@ -6,7 +6,7 @@
   const gameNames = ['Rocket League','VALORANT','League of Legends'];
   const storageGet=(key)=>{try{return localStorage.getItem(key);}catch(_){return null;}};
   const storageSet=(key,val)=>{try{localStorage.setItem(key,val);}catch(_){}};
-  const state = {api:null,user:null,events:[],matches:[],teams:[],mine:[],members:[],referee:false,owner:false,editor:false,notices:[]};
+  const state = {api:null,user:null,events:[],matches:[],posts:[],teams:[],mine:[],members:[],referee:false,owner:false,editor:false,notices:[]};
   const el = (tag, text='', className='') => {
     const n=document.createElement(tag);n.textContent=String(text ?? '');if(className)n.className=className;return n;
   };
@@ -15,7 +15,7 @@
   const dateText=(date)=>{if(!date)return 'TIME TBA';const d=new Date(date);return Number.isNaN(d.valueOf())?'TIME TBA':new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Tunis',dateStyle:'medium',timeStyle:'short'}).format(d)+' (Tunis)';};
   const makeButton=(text,fn)=>{const b=el('button',text);b.type='button';b.addEventListener('click',async()=>{b.disabled=true;try{await fn();}catch(e){info('Could not complete this action. Try again.','error');console.warn('Arena action:',e?.message||'error');}finally{b.disabled=false;}});return b;};
   const card=(heading,game,status,desc)=>{const c=el('article','','arena-item');const meta=el('div','','arena-meta');if(game)meta.append(el('span',game,'arena-tag'));if(status)meta.append(el('span',status.toUpperCase(),'arena-tag status-'+status.toLowerCase()));c.append(meta,el('h3',heading));if(desc)c.append(el('p',desc));return c;};
-  const handleError=(error,context)=>{if(error){console.warn('Arena',context,error.code||'unavailable');if(['42P01','PGRST205','42883'].includes(error.code)||/schema cache|does not exist/i.test(error.message||'')){info('Arena Hub database migration is not installed in VXSK-STAGING yet. See the separate SQL setup instructions. No private data was changed.','error');}else info('Some arena features are unavailable right now. Check the staging database setup.','error');}return Boolean(error);};
+  const handleError=(error,context)=>{if(error){console.warn('Arena',context,error.code||'unavailable');if(['42P01','PGRST205','42883'].includes(error.code)||/schema cache|does not exist/i.test(error.message||'')){info('Arena Hub database setup is incomplete. See the separate SQL setup instructions. No private data was changed.','error');}else info('Some arena features are unavailable right now. Check the database setup.','error');}return Boolean(error);};
   async function rpc(name,args={}) {
     if(!state.user){info('Sign in on the VXSK website before using player features.','error');return null;}
     const {data,error}=await state.api.rpc(name,args);
@@ -36,6 +36,7 @@
     if(!matches.length){box.append(empty('No matches published yet. Official fixtures will appear when staff schedule them.'));return;}
     for(const m of matches){
       const c=card(m.round_name,m.game,m.state,dateText(m.starts_at));
+      const art=window.VXSKCover?.image(state.api,m.cover_path);if(art)c.prepend(art);
       const score = m.score_a==null||m.score_b==null?'VS':`${m.score_a} – ${m.score_b}`;
       const names=el('div','','arena-competitors');names.append(el('strong',m.side_a),el('span',score),el('strong',m.side_b));c.append(names);box.append(c);
     }
@@ -43,9 +44,26 @@
   function renderCalendar(){
     const box=$('arena-event-list');box.replaceChildren();
     for(const evt of [...state.events].sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)).slice(0,35)){
-      const c=card(evt.title,evt.game,'',dateText(evt.starts_at));if(evt.details)c.append(el('p',evt.details));if(evt.prize)c.append(el('p','🏆 Prize: '+evt.prize,'arena-prize'));box.append(c);
+      const c=card(evt.title,evt.game,'',dateText(evt.starts_at));
+      const art=window.VXSKCover?.image(state.api,evt.cover_path);if(art)c.prepend(art);if(evt.details)c.append(el('p',evt.details));if(evt.prize)c.append(el('p','🏆 Prize: '+evt.prize,'arena-prize'));box.append(c);
     }
     if(!box.children.length)box.append(empty('No published event calendar dates yet.'));
+  }
+  function renderPosters(){
+    const box=$('arena-public-posters');if(!box)return;box.replaceChildren();
+    const posts=state.posts.slice(0,12);
+    for(const post of posts){
+      const c=el('article','','vxsk-poster-card');
+      const poster=window.VXSKCover?.image(state.api,post.cover_path);
+      if(poster)c.append(poster);else c.append(el('div','VXSK','vxsk-poster-fallback'));
+      const body=el('div','','vxsk-poster-card-body');
+      body.append(el('span',post.kind==='match'?'⚔ SHOWMATCH':'✦ ANNOUNCEMENT','vxsk-poster-tag'),el('h3',post.title));
+      if(post.kind==='match')body.append(el('p',[post.player_a,post.player_b].filter(Boolean).join(' VS ')));
+      if(post.starts_at)body.append(el('p',dateText(post.starts_at)));
+      if(post.kind==='announcement'&&post.body)body.append(el('p',post.body.slice(0,220)));
+      c.append(body);box.append(c);
+    }
+    if(!posts.length)box.append(empty('News & showmatches will appear when staff publish them.'));
   }
   function renderBrackets(){
     const box=$('arena-bracket');box.replaceChildren();
@@ -131,17 +149,18 @@
     }
   }
   async function loadPublic(){
-    const [events,matches,teams] = await Promise.all([
-      state.api.from('vxsk_hub_events').select('id,title,game,starts_at,details,prize,published').eq('published',true).order('starts_at',{ascending:true}).limit(80),
-      state.api.from('vxsk_hub_matches').select('id,event_id,game,round_name,bracket_slot,side_a,side_b,starts_at,state,score_a,score_b,published').eq('published',true).limit(120),
-      state.api.from('vxsk_hub_teams').select('id,captain_id,name,game,description,published').eq('published',true).limit(60)
+    const [events,matches,teams,posts] = await Promise.all([
+      state.api.from('vxsk_hub_events').select('id,title,game,starts_at,details,prize,published,cover_path').eq('published',true).order('starts_at',{ascending:true}).limit(80),
+      state.api.from('vxsk_hub_matches').select('id,event_id,game,round_name,bracket_slot,side_a,side_b,starts_at,state,score_a,score_b,published,cover_path').eq('published',true).limit(120),
+      state.api.from('vxsk_hub_teams').select('id,captain_id,name,game,description,published').eq('published',true).limit(60),
+      state.api.from('match_center_posts').select('kind,title,player_a,player_b,starts_at,body,cover_path').eq('published',true).order('created_at',{ascending:false}).limit(12)
     ]);
     for(const response of [events,matches,teams])if(handleError(response.error,'public feed'))break;
-    state.events=events.data||[];state.matches=matches.data||[];state.teams=teams.data||[];
+    state.events=events.data||[];state.matches=matches.data||[];state.teams=teams.data||[];state.posts=posts.data||[];
     $('arena-events-count').textContent=state.events.length;
     $('arena-matches-count').textContent=state.matches.length;
     $('arena-teams-count').textContent=state.teams.length;
-    renderMatches();renderCalendar();renderBrackets();void renderTeams();
+    renderMatches();renderCalendar();renderBrackets();renderPosters();void renderTeams();
   }
   async function loadPersonal(){
     if(!state.user){renderPersonal();return;}
@@ -169,7 +188,7 @@
     $('arena-login').textContent=state.user?'ACCOUNT CONNECTED ✓':'SIGN IN ↗';
     if(!state.user){state.badges=[];state.notices=[];}
     await loadPublic();await loadPersonal();
-    info(state.user?'ARENA HUB CONNECTED · Logged in to VXSK-STAGING':'Viewing public Arena Hub. Sign in on VXSK to use personal features.','ok');
+    info(state.user?'ARENA HUB CONNECTED · Logged in to VXSK':'Viewing public Arena Hub. Sign in on VXSK to use personal features.','ok');
   }
   $('arena-refresh').addEventListener('click',()=>void reload());
   $('arena-game-filter').addEventListener('change',renderMatches);

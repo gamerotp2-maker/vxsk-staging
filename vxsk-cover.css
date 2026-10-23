@@ -1,0 +1,13 @@
+/* VXSK event posters */
+.vxsk-cover-picker-preview{width:min(100%,420px);aspect-ratio:16/9;border:1px dashed #8b72ce;border-radius:12px;background:linear-gradient(140deg,#322060,#101733);display:flex;align-items:center;justify-content:center;overflow:hidden;color:#cbbde8;font-size:12px;text-align:center;padding:8px;margin:6px 0}
+.vxsk-cover-picker-preview img{width:100%;height:100%;object-fit:cover}
+.vxsk-event-cover{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:linear-gradient(130deg,#402477,#142958)}
+.match-card .vxsk-event-cover{margin:-6px 0 4px;border-radius:10px}
+.vxsk-poster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}
+.vxsk-poster-card{overflow:hidden;border:1px solid #554080;border-radius:15px;background:#15112f;min-width:0}
+.vxsk-poster-card .vxsk-event-cover{border-radius:0}
+.vxsk-poster-card-body{padding:15px}
+.vxsk-poster-card h3{font-size:19px;overflow-wrap:anywhere;margin:6px 0}
+.vxsk-poster-card p{color:#cfc8e7;margin:5px 0;overflow-wrap:anywhere;font-size:13px}
+.vxsk-poster-fallback{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg,#48177e,#1a2c62);font-size:42px;font-weight:950;letter-spacing:.08em;color:#e8d1ff}
+.vxsk-poster-tag{display:inline-block;font-size:11px;font-weight:850;letter-spacing:.08em;color:#cfafff}

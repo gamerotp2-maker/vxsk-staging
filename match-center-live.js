@@ -8,7 +8,7 @@
   if (window.VXSK_STAGING_BLOCKED || !/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(cfg.url || '') ||
       !cfg.publishableKey || cfg.publishableKey.includes('PASTE_') ||
       typeof fetch !== 'function') return; // Legacy static fixture fallback.
-  const query='?select=id,kind,title,game,mode,player_a,player_b,starts_at,body,status,created_at&published=eq.true&order=created_at.desc&limit=50';
+  const query='?select=id,kind,title,game,mode,player_a,player_b,starts_at,body,status,cover_path,created_at&published=eq.true&order=created_at.desc&limit=50';
   let posts;
   try {
     // Read through the anonymous Supabase REST API; RLS filters non-published rows.
@@ -35,8 +35,11 @@
     return Number.isNaN(d.getTime()) ? 'Time TBA' : d.toLocaleString('en-GB',
       {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Africa/Tunis'})+' (Tunis time)';
   };
+  const poster=post=>window.VXSKCover?.image(publicApi,post.cover_path);
+  const publicApi=window.supabase?.createClient?.(cfg.url,cfg.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
   for (const post of announcement) {
     const card=makeText('article','','match-card vxsk-announcement-card');
+    const art=poster(post);if(art)card.append(art);
     card.append(makeText('span','✦  VXSK / OFFICIAL ANNOUNCEMENT','match-kicker'));
     card.append(makeText('h3',post.title,'vxsk-announcement-title'));
     card.append(makeText('p',post.body,'vxsk-announcement-copy'));
@@ -50,6 +53,7 @@
   for (const post of matches) {
     if (!post.player_a || !post.player_b || !post.starts_at) continue;
     const card=makeText('article','','match-card');
+    const art=poster(post);if(art)card.append(art);
     card.append(makeText('span',(post.game || 'VXSK')+' / '+(post.mode||'Showmatch'),'match-kicker'));
     if(post.title) card.append(makeText('h3',post.title,'vxsk-match-title'));
     const names=makeText('div','','match-names');

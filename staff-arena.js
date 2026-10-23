@@ -6,6 +6,9 @@
   const $=id=>document.getElementById(id);
   const t=(tag,text='',cls='')=>{const e=document.createElement(tag);e.textContent=String(text??'');if(cls)e.className=cls;return e;};
   const state={api:null,referee:false,owner:false,editor:false,matches:[],ready:false,loading:false};
+  const cover=window.VXSKCover;
+  const eventPreview=cover?.preview(document.querySelector('[name=event-cover]'),$('staff-event-cover-preview'));
+  const matchPreview=cover?.preview(document.querySelector('[name=match-cover]'),$('staff-match-cover-preview'));
   function notice(message='',error=false){const node=$('staff-arena-message');node.textContent=message;node.className='notice'+(error?' error':'');}
   const readable=date=>{if(!date)return 'TIME TBA';const d=new Date(date);return isNaN(d.valueOf())?'TIME TBA':new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Africa/Tunis'}).format(d)+' Tunis';};
   function submitBusy(form,disabled){const b=form.querySelector('button[type="submit"]');if(b)b.disabled=disabled;}
@@ -100,7 +103,7 @@
     state.loading=true;$('staff-arena-refresh').disabled=true;
     try{
       await getMatches();await getReports();await getPlayers();
-      notice('Tournament workspace connected to VXSK-STAGING. Draft matches stay private.');
+      notice('Tournament workspace connected. Draft matches stay private.');
     }catch(error){showError('Loading tournament data',error);}
     finally{state.loading=false;$('staff-arena-refresh').disabled=false;}
   }
@@ -116,24 +119,26 @@
   bindForm('staff-event-form',async f=>{
     if(!state.editor)return;
     const local=f.elements['event-date'].value;
-    const {error}=await state.api.from('vxsk_hub_events').insert({
-      title:f.elements['event-title'].value.trim(),game:f.elements['event-game'].value,
-      starts_at:new Date(local+':00+01:00').toISOString(),details:f.elements['event-details'].value.trim(),prize:f.elements['event-prize'].value.trim(),
-      published:f.elements['event-publish'].checked
-    });
-    if(error)throw error;
-    f.reset();notice('Event date saved in STAGING.');
+    let path='';try{
+      if(f.elements['event-cover'].files?.[0]){if(!cover)throw Error('Image tools unavailable');path=await cover.upload(state.api,f.elements['event-cover'].files[0]);}
+      const payload={title:f.elements['event-title'].value.trim(),game:f.elements['event-game'].value,
+        starts_at:new Date(local+':00+01:00').toISOString(),details:f.elements['event-details'].value.trim(),prize:f.elements['event-prize'].value.trim(),
+        published:f.elements['event-publish'].checked};if(path)payload.cover_path=path;
+      const {error}=await state.api.from('vxsk_hub_events').insert(payload);if(error)throw error;
+      f.reset();eventPreview?.reset();notice('Tournament event saved with its chosen poster.');
+    }catch(error){if(path)void cover?.discard(state.api,path);throw error;}
   });
   bindForm('staff-match-form',async f=>{
     if(!state.editor)return;
     const local=f.elements['match-date'].value;
-    const {error}=await state.api.from('vxsk_hub_matches').insert({
-      game:f.elements['match-game'].value,round_name:f.elements['match-round'].value.trim(),
-      bracket_slot:Number(f.elements['match-slot'].value),side_a:f.elements['match-a'].value.trim(),side_b:f.elements['match-b'].value.trim(),
-      starts_at:local?new Date(local+':00+01:00').toISOString():null,published:f.elements['match-publish'].checked
-    });
-    if(error)throw error;
-    f.reset();await refresh();notice('Bracket match saved in STAGING. Draft matches stay private.');
+    let path='';try{
+      if(f.elements['match-cover'].files?.[0]){if(!cover)throw Error('Image tools unavailable');path=await cover.upload(state.api,f.elements['match-cover'].files[0]);}
+      const payload={game:f.elements['match-game'].value,round_name:f.elements['match-round'].value.trim(),
+        bracket_slot:Number(f.elements['match-slot'].value),side_a:f.elements['match-a'].value.trim(),side_b:f.elements['match-b'].value.trim(),
+        starts_at:local?new Date(local+':00+01:00').toISOString():null,published:f.elements['match-publish'].checked};if(path)payload.cover_path=path;
+      const {error}=await state.api.from('vxsk_hub_matches').insert(payload);if(error)throw error;
+      f.reset();matchPreview?.reset();await refresh();notice('Bracket match saved. Drafts stay private.');
+    }catch(error){if(path)void cover?.discard(state.api,path);throw error;}
   });
   bindForm('staff-referee-form',async f=>{
     if(!state.referee)return;
@@ -150,7 +155,7 @@
       p_match:f.elements['assign-match'].value,p_player:f.elements['assign-user'].value.trim(),p_side:f.elements['assign-side'].value
     });
     if(!ok)throw new Error('Assignment denied');
-    f.reset();notice('Player assigned and notified in STAGING.');
+    f.reset();notice('Player assigned and notified.');
   });
   bindForm('staff-badge-form',async f=>{
     if(!state.owner)return;
@@ -158,7 +163,7 @@
       p_player:f.elements['badge-user'].value.trim(),p_badge:f.elements['badge-type'].value
     });
     if(!ok)throw new Error('Badge award denied');
-    f.reset();notice('Badge awarded in STAGING.');
+    f.reset();notice('Badge awarded.');
   });
   $('staff-arena-refresh').addEventListener('click',refresh);
   window.addEventListener('vxsk:staff-tournaments-open',()=>void refresh());
