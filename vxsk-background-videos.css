@@ -1,0 +1,52 @@
+/* VXSK STEP 3: Crisp full-width video backgrounds distributed across the real website.
+   No overlay/filter/opacity is applied to video pixels; contrast panels sit ONLY behind text. */
+.vxsk-world-scene {
+  position:relative;isolation:isolate;overflow:hidden;width:100%;min-height:clamp(470px,72svh,850px);
+  background:#080d1c;border-block:1px solid rgba(139,113,241,.32);
+  display:flex;align-items:center;justify-content:center;
+}
+.vxsk-world-media {position:absolute;inset:0;z-index:0;background:#070c19;pointer-events:none;overflow:hidden}
+.vxsk-world-media::before,.vxsk-world-media::after {display:none!important;content:none!important}
+.vxsk-world-film {
+  position:absolute;inset:0;width:100%;height:100%;display:block;
+  object-fit:cover;object-position:center center;
+  filter:none!important;opacity:1!important;transform:none!important;
+  mix-blend-mode:normal!important;backdrop-filter:none!important;transition:none!important;
+  image-rendering:auto; /* sharpen by keeping natural HD pixels */
+}
+.vxsk-world-inner{position:relative;z-index:1;width:min(100% - 72px,1390px);padding-block:clamp(80px,10vw,150px);pointer-events:none}
+.vxsk-world-copy{
+  width:min(540px,100%);border:1px solid rgba(182,150,255,.4);border-left:4px solid #a45dff;
+  padding:clamp(23px,3.2vw,48px);border-radius:3px;
+  background:rgba(5,9,23,.78);box-shadow:0 14px 45px rgba(3,7,18,.30);
+  pointer-events:auto;
+}
+.vxsk-world-eyebrow{display:block;font:800 clamp(10px,1vw,13px)/1.4 'Space Grotesk',sans-serif;color:#c6b0ff;letter-spacing:.18em;margin-bottom:17px}
+.vxsk-world-copy h2{font:900 clamp(54px,7.6vw,124px)/.84 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.005em;margin:0 0 22px;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.35)}
+.vxsk-world-copy h2 span{display:block}.vxsk-world-copy h2 em{font-style:normal;color:#b98bff}
+.vxsk-world-league .vxsk-world-copy{border-left-color:#cfad6f}
+.vxsk-world-league .vxsk-world-copy h2 em{color:#eac887}
+.vxsk-world-ace .vxsk-world-copy{border-left-color:#f56d89}
+.vxsk-world-ace .vxsk-world-copy h2 em{color:#ff8da2}
+.vxsk-world-copy p{font:500 clamp(13px,1.1vw,17px)/1.7 'Space Grotesk',sans-serif;color:#e5eaff;margin:0 0 22px;max-width:390px}
+.vxsk-world-cta{display:inline-flex;gap:17px;align-items:center;justify-content:space-between;max-width:100%;min-height:43px;padding:10px 16px;border:1px solid rgba(175,151,255,.73);background:rgba(46,28,100,.8);color:#fff;font:800 12px/1.2 'Barlow Condensed',sans-serif;letter-spacing:.1em;text-decoration:none}
+.vxsk-world-toolbar{position:absolute;z-index:2;left:50%;bottom:20px;transform:translateX(-50%);width:min(100% - 72px,1390px);display:flex;gap:14px;align-items:center;justify-content:space-between;pointer-events:auto}
+.vxsk-world-playback{font:800 11px/1.3 'Space Grotesk',sans-serif;color:#f6f4ff;text-shadow:0 2px 12px #000;background:rgba(4,7,19,.78);padding:10px 12px;border-radius:4px}
+.vxsk-world-actions{display:flex;flex-wrap:wrap;justify-content:end;gap:9px}
+.vxsk-world-actions button,.vxsk-world-actions a{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(188,161,255,.76);padding:9px 13px;background:rgba(5,7,22,.87);color:#fff;border-radius:4px;min-height:38px;font:800 12px/1.2 'Barlow Condensed',sans-serif;letter-spacing:.08em;text-decoration:none;cursor:pointer;white-space:nowrap}
+.vxsk-world-actions button:hover,.vxsk-world-actions a:hover{background:rgba(75,48,140,.9)}
+.vxsk-world-actions button:focus-visible,.vxsk-world-actions a:focus-visible,.vxsk-world-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+/* Media still fills the stage on desktop; on narrow displays the entire 16:9
+   frame is visible above the text so it never gets stretched or cropped. */
+@media(max-width:700px){
+  .vxsk-world-scene{display:block;min-height:0;padding:0 0 12px}
+  .vxsk-world-media{position:relative;inset:auto;width:100%;aspect-ratio:16/9}
+  .vxsk-world-film{object-fit:contain;background:#050914}
+  .vxsk-world-inner{width:calc(100% - 26px);padding:12px 0 10px}
+  .vxsk-world-copy{width:100%;padding:20px 18px;background:#0e1328}
+  .vxsk-world-copy h2{font-size:clamp(42px,11vw,72px)}
+  .vxsk-world-copy p{font-size:13px}
+  .vxsk-world-toolbar{position:relative;left:auto;bottom:auto;transform:none;width:calc(100% - 26px);margin:2px auto 10px;flex-wrap:wrap;gap:9px}
+  .vxsk-world-actions{justify-content:flex-start}
+}
+@media(prefers-reduced-motion:reduce){.vxsk-world-film{transition:none!important}}

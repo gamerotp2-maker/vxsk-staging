@@ -1,87 +1,90 @@
-/* VXSK cinematic showcase: play at most one visible 16:9 source at a time. */
+/* VXSK STEP 3 — video is a clear background to real page sections.
+   One visible clip maximum; lazy source loading; data-saver and reduced-motion safe.
+   No user/social/staff/auth logic is touched. */
 'use strict';
 (() => {
-  const scenes=[...document.querySelectorAll('[data-cinema]')];
+  const scenes=[...document.querySelectorAll('[data-vxsk-world]')];
   if(!scenes.length)return;
-  let current=null, manualPaused=new WeakSet(), audioScene=null;
-  const dataSaver=Boolean(navigator.connection?.saveData);
-  const prefersMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
-  const loaded=new WeakSet();
-  const videoOf=scene=>scene.querySelector('video');
-  const stateOf=scene=>scene.querySelector('.vxsk-cinema-state');
-  const buttonOf=scene=>scene.querySelector('[data-cinema-toggle]');
-  const soundOf=scene=>scene.querySelector('[data-cinema-sound]');
-  const ensureLoaded=scene=>{
-    if(loaded.has(scene))return;
-    const video=videoOf(scene),src=video.querySelector('source[data-src]');
-    if(!src)return;
-    src.src=src.dataset.src;src.removeAttribute('data-src');
-    video.preload='metadata';video.load();loaded.add(scene);
-  };
-  const refresh=scene=>{
-    const video=videoOf(scene), button=buttonOf(scene),sound=soundOf(scene);
-    button.textContent=video.paused?'▶ PLAY':'Ⅱ PAUSE';
-    button.setAttribute('aria-label',(video.paused?'Play':'Pause')+' '+video.getAttribute('aria-label'));
-    sound.textContent=video.muted?'🔇 SOUND OFF':'🔊 SOUND ON';
-    sound.setAttribute('aria-pressed',String(!video.muted));
-    if(video.error)stateOf(scene).textContent='VIDEO UNAVAILABLE · TRY OPEN FULL VIDEO';
-    else if(video.readyState>=2&&!video.paused)stateOf(scene).textContent='● LIVE PREVIEW · 1080p';
-    else if(video.readyState>=1)stateOf(scene).textContent='PAUSED · READY';
-    else stateOf(scene).textContent='PREVIEW READY';
-  };
-  const pauseScene=scene=>{const video=videoOf(scene);video.pause();if(audioScene===scene)audioScene=null;video.muted=true;refresh(scene);};
-  const start=async(scene,fromClick=false)=>{
-    if(current&&current!==scene)pauseScene(current);
-    current=scene;
-    ensureLoaded(scene);
-    const video=videoOf(scene);
-    if(fromClick)manualPaused.delete(scene);
-    try{await video.play();}catch(_){stateOf(scene).textContent='TAP PLAY TO WATCH';}
-    refresh(scene);
-  };
-  for(const scene of scenes){
-    const video=videoOf(scene);
-    video.muted=true;
-    video.addEventListener('play',()=>refresh(scene));
-    video.addEventListener('pause',()=>refresh(scene));
-    video.addEventListener('error',()=>refresh(scene));
-    video.addEventListener('loadedmetadata',()=>refresh(scene));
-    buttonOf(scene).addEventListener('click',()=>{
-      if(video.paused)void start(scene,true);
-      else{manualPaused.add(scene);pauseScene(scene);}
-    });
-    soundOf(scene).addEventListener('click',async()=>{
-      ensureLoaded(scene);
-      if(video.muted){
-        for(const other of scenes)if(other!==scene){videoOf(other).muted=true;refresh(other);}
-        video.muted=false;video.volume=.55;audioScene=scene;
-        if(video.paused)await start(scene,true);
-      }else{video.muted=true;audioScene=null;}
-      refresh(scene);
-    });
-    refresh(scene);
+  const media=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const connection=navigator.connection;
+  const manuallyPaused=new WeakSet();
+  let current=null;
+  let busy=false;
+  const $=(scene,s)=>scene.querySelector(s);
+  const film=scene=>$(scene,'video.vxsk-world-film');
+  const lowLag=()=>document.documentElement.classList.contains('vxsk-low-lag')||document.body.classList.contains('vxsk-low-lag');
+  const allowAutoplay=()=>!document.hidden&&!lowLag()&&!media?.matches&&!connection?.saveData;
+  function ensure(scene){
+    const v=film(scene);if(v.dataset.vxskLoaded)return;
+    const source=v.querySelector('source[data-src]');if(!source)return;
+    source.src=source.dataset.src;source.removeAttribute('data-src');
+    v.preload='metadata';v.dataset.vxskLoaded='1';v.load();
   }
-  if(!('IntersectionObserver'in window))return;
-  const observer=new IntersectionObserver(entries=>{
-    for(const entry of entries){
-      const scene=entry.target;
-      // Recheck the LIVE layout instead of a queued observer entry: scrolling to a
-      // Play button can otherwise deliver an old offscreen entry and stop the video.
-      const rect=scene.getBoundingClientRect();
-      const trulyAway=rect.bottom < -100 || rect.top > window.innerHeight + 100;
-      if(trulyAway && !videoOf(scene).paused)pauseScene(scene);
-    }
-    if(document.hidden||dataSaver||prefersMotion)return;
-    const visible=scenes.filter(s=>{
-      const rect=s.getBoundingClientRect();
-      return rect.top<window.innerHeight*.82&&rect.bottom>window.innerHeight*.28;
+  function update(scene){
+    const v=film(scene),button=$(scene,'[data-world-toggle]'),status=$(scene,'.vxsk-world-playback');
+    const playing=!v.paused&&!v.ended&&v.readyState>=2;
+    button.textContent=playing?'Ⅱ PAUSE MOTION':'▶ PLAY MOTION';
+    button.setAttribute('aria-pressed',String(playing));
+    button.setAttribute('aria-label',playing?'Pause background video':'Play background video');
+    if(v.error)status.textContent='VIDEO UNAVAILABLE · USE FULL CLIP';
+    else if(playing)status.textContent='● BACKGROUND PLAYING · MUTED';
+    else if(v.dataset.vxskLoaded)status.textContent='BACKGROUND PAUSED';
+    else status.textContent='BACKGROUND VIDEO · READY';
+  }
+  function pause(scene){
+    const v=film(scene);v.pause();v.muted=true;update(scene);
+    if(current===scene)current=null;
+  }
+  async function play(scene,manual=false){
+    if(manual)manuallyPaused.delete(scene);
+    if(!manual&&!allowAutoplay())return;
+    for(const other of scenes)if(other!==scene&&!film(other).paused)pause(other);
+    ensure(scene);
+    const v=film(scene);
+    current=scene;
+    try{await v.play()}catch(_){/* Browser blocks autoplay or media failed; poster & button stay visible. */}
+    update(scene);
+  }
+  function onscreen(scene){
+    const r=scene.getBoundingClientRect(),h=window.innerHeight||700;
+    return r.bottom>h*.18 && r.top<h*.82;
+  }
+  function sync(){
+    if(busy)return;busy=true;
+    requestAnimationFrame(()=>{
+      busy=false;
+      if(!allowAutoplay()){
+        for(const scene of scenes)if(!film(scene).paused)pause(scene);
+        return;
+      }
+      const visible=scenes.filter(onscreen);
+      if(!visible.length){for(const scene of scenes)if(!film(scene).paused)pause(scene);return;}
+      const mid=(window.innerHeight||700)/2;
+      visible.sort((a,b)=>Math.abs((a.getBoundingClientRect().top+a.getBoundingClientRect().bottom)/2-mid)-Math.abs((b.getBoundingClientRect().top+b.getBoundingClientRect().bottom)/2-mid));
+      const winner=visible[0];
+      for(const scene of scenes)if(scene!==winner&&!film(scene).paused)pause(scene);
+      if(!manuallyPaused.has(winner)&&film(winner).paused)void play(winner);
     });
-    if(!visible.length)return;
-    const winner=visible.sort((a,b)=>Math.abs(a.getBoundingClientRect().top-window.innerHeight*.08)-Math.abs(b.getBoundingClientRect().top-window.innerHeight*.08))[0];
-    if(!manualPaused.has(winner)&&videoOf(winner).paused)void start(winner);
-  },{threshold:[0,.27,.6],rootMargin:'200px 0px 200px 0px'});
-  for(const scene of scenes)observer.observe(scene);
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){for(const scene of scenes)if(!videoOf(scene).paused)pauseScene(scene);}
-  });
+  }
+  for(const scene of scenes){
+    const v=film(scene),b=$(scene,'[data-world-toggle]');
+    v.muted=true;
+    b.addEventListener('click',()=>{
+      if(v.paused)void play(scene,true);
+      else{manuallyPaused.add(scene);pause(scene);}
+    });
+    for(const type of ['playing','pause','loadeddata','error'])v.addEventListener(type,()=>update(scene));
+    update(scene);
+  }
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(sync,{threshold:[0,.12,.35,.6],rootMargin:'120px 0px 120px 0px'});
+    scenes.forEach(s=>observer.observe(s));
+  }else window.addEventListener('scroll',sync,{passive:true});
+  window.addEventListener('resize',sync,{passive:true});
+  document.addEventListener('visibilitychange',sync);
+  document.addEventListener('vxsk:performance-mode',sync);
+  media?.addEventListener?.('change',sync);
+  connection?.addEventListener?.('change',sync);
+  window.addEventListener('pagehide',()=>scenes.forEach(pause),{once:true});
+  sync();
 })();

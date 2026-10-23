@@ -17,7 +17,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=12.8.35-social">
-  <script src="video-showcase.js?v=12.8.34-cinema-2" defer></script>
+  <link rel="stylesheet" href="vxsk-background-videos.css?v=12.8.36-bg1">
+  <script src="video-showcase.js?v=12.8.36-bg1" defer></script>
   <script>
   // Apply saved visual mode before the first paint, preventing a video flash.
   try { if (localStorage.getItem('vxsk-low-lag') === '1') document.documentElement.classList.add('vxsk-low-lag'); } catch (_) {}
@@ -78,7 +79,7 @@
 
   <main id="main">
     <section class="hero shell" aria-labelledby="hero-title">
-      <div class="vxsk-hero-video" aria-hidden="true"><video class="vxsk-hero-film" muted loop playsinline preload="none" poster="assets/vxsk-gameplay-poster.jpg" data-cinematic-src="assets/vxsk-gameplay-ambient.mp4" aria-hidden="true"></video></div>
+      
       <div class="hero-light-1" aria-hidden="true"></div>
       <div class="hero-content">
         <div class="eyebrow"><span class="eyebrow-line"></span> THE NEXT CHAPTER STARTS NOW <span class="eyebrow-dot">✦</span></div>
@@ -127,6 +128,29 @@
       </div>
     </section>
 
+    <section class="vxsk-world-scene vxsk-world-reset" id="videos" data-vxsk-world aria-label="01 / ROCKET LEAGUE cinematic gameplay background">
+      <div class="vxsk-world-media" aria-hidden="true">
+        <video class="vxsk-world-film" muted loop playsinline preload="none" poster="assets/media/reset-doubletap-poster.jpg" aria-hidden="true">
+          <source data-src="assets/media/reset-doubletap.mp4?v=12.8.36-background" type="video/mp4">
+        </video>
+      </div>
+      <div class="vxsk-world-inner shell">
+        <div class="vxsk-world-copy">
+          <span class="vxsk-world-eyebrow">01 / ROCKET LEAGUE / VXSK</span>
+          <h2>THE MOMENT.<span>THE <em>RESET.</em></span></h2>
+          <p>Air control. Precision. The VXSK arena begins here.</p>
+          <a class="vxsk-world-cta" href="#games">EXPLORE THE GAMES <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="vxsk-world-toolbar shell">
+        <span class="vxsk-world-playback" role="status" aria-live="polite">BACKGROUND VIDEO · READY</span>
+        <div class="vxsk-world-actions">
+          <button class="vxsk-world-motion" type="button" data-world-toggle aria-label="Play reset-doubletap background video" aria-pressed="false">▶ PLAY MOTION</button>
+          <a class="vxsk-world-full" href="assets/media/reset-doubletap.mp4?v=12.8.36-background" target="_blank" rel="noopener noreferrer">WATCH FULL CLIP ↗</a>
+        </div>
+      </div>
+    </section>
+
 <section class="section shell match-center match-hub" id="match-center" aria-labelledby="match-title">
  <div class="section-head split-heading reveal"><div><div class="kicker"><span>LIVE BOARD /</span> OFFICIAL VXSK NEWS</div><h2 id="match-title">THE ARENA <span class="gradient-text">BULLETIN.</span></h2></div><p>All in one place: official announcements, upcoming fixtures, confirmed player pairings and match times.</p></div>
  <div class="bulletin-intro reveal"><div><span class="bulletin-pulse" aria-hidden="true"></span><strong>OFFICIAL UPDATES</strong><small>Published by VXSK organizers</small></div><a href="#modes">VIEW EVENT SCHEDULE <span aria-hidden="true">↗</span></a></div>
@@ -148,6 +172,29 @@
       </div>
     </section>
 
+    <section class="vxsk-world-scene vxsk-world-pentakill" id="vxsk-world-league" data-vxsk-world aria-label="02 / LEAGUE OF LEGENDS cinematic gameplay background">
+      <div class="vxsk-world-media" aria-hidden="true">
+        <video class="vxsk-world-film" muted loop playsinline preload="none" poster="assets/media/pentakill-tris-poster.jpg" aria-hidden="true">
+          <source data-src="assets/media/pentakill-tris.mp4?v=12.8.36-background" type="video/mp4">
+        </video>
+      </div>
+      <div class="vxsk-world-inner shell">
+        <div class="vxsk-world-copy">
+          <span class="vxsk-world-eyebrow">02 / LEAGUE OF LEGENDS / VXSK</span>
+          <h2>FIVE TAKEDOWNS.<span>ONE <em>PENTAKILL.</em></span></h2>
+          <p>Every fight can turn into a legend.</p>
+          <a class="vxsk-world-cta" href="#games">EXPLORE THE GAMES <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="vxsk-world-toolbar shell">
+        <span class="vxsk-world-playback" role="status" aria-live="polite">BACKGROUND VIDEO · READY</span>
+        <div class="vxsk-world-actions">
+          <button class="vxsk-world-motion" type="button" data-world-toggle aria-label="Play pentakill-tris background video" aria-pressed="false">▶ PLAY MOTION</button>
+          <a class="vxsk-world-full" href="assets/media/pentakill-tris.mp4?v=12.8.36-background" target="_blank" rel="noopener noreferrer">WATCH FULL CLIP ↗</a>
+        </div>
+      </div>
+    </section>
+
 
     <section class="section shell modes-section season-showcase" id="modes" aria-labelledby="season-title">
       <div class="section-head split-heading reveal"><div><div class="kicker"><span>03 /</span> THE EVENT CALENDAR · 2026—2027</div><h2 id="season-title">THREE GAMES.<br><span class="gradient-text">TWELVE MOMENTS.</span></h2></div><p>Choose a universe to reveal its four seasonal chapters, dates and play formats. All dates are subject to organizer confirmation.</p></div>
@@ -162,6 +209,29 @@
         <p class="season-notice" id="season-notice">These modes accept Rocket League player applications. Applications do not guarantee a match.</p>
       </div>
     </section>
+    <section class="vxsk-world-scene vxsk-world-ace" id="vxsk-world-valorant" data-vxsk-world aria-label="03 / VALORANT cinematic gameplay background">
+      <div class="vxsk-world-media" aria-hidden="true">
+        <video class="vxsk-world-film" muted loop playsinline preload="none" poster="assets/media/ace-poster.jpg" aria-hidden="true">
+          <source data-src="assets/media/ace.mp4?v=12.8.36-background" type="video/mp4">
+        </video>
+      </div>
+      <div class="vxsk-world-inner shell">
+        <div class="vxsk-world-copy">
+          <span class="vxsk-world-eyebrow">03 / VALORANT / VXSK</span>
+          <h2>ONE ROUND.<span>THE <em>ACE.</em></span></h2>
+          <p>The final clutch belongs to the players.</p>
+          <a class="vxsk-world-cta" href="#games">EXPLORE THE GAMES <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="vxsk-world-toolbar shell">
+        <span class="vxsk-world-playback" role="status" aria-live="polite">BACKGROUND VIDEO · READY</span>
+        <div class="vxsk-world-actions">
+          <button class="vxsk-world-motion" type="button" data-world-toggle aria-label="Play ace background video" aria-pressed="false">▶ PLAY MOTION</button>
+          <a class="vxsk-world-full" href="assets/media/ace.mp4?v=12.8.36-background" target="_blank" rel="noopener noreferrer">WATCH FULL CLIP ↗</a>
+        </div>
+      </div>
+    </section>
+
 
     <section class="section shell timeline-section year-roadmap" id="timeline"><div class="section-head split-heading reveal"><div><div class="kicker"><span>04 /</span> FULL SEASON AT A GLANCE</div><h2>YOUR ROAD TO <span class="gradient-text">THE ARENA.</span></h2></div><p>Follow the year in chronological order. Select a universe to view its exact mode dates.</p></div><div class="year-roadmap-grid reveal">
       <a href="#modes" data-season-link="rocket"><img src="assets/rl-logo.webp" alt="" loading="lazy"><span><b>ROCKET LEAGUE</b><small>OCT 2026 — FEB 2027</small></span><span aria-hidden="true">↗</span></a>
@@ -170,28 +240,6 @@
     </div></section>
 
     <section class="section shell register-section" id="register"><div class="register-back-glow" aria-hidden="true"></div><div class="register-content reveal"><div class="kicker"><span>05 /</span> IT'S YOUR TURN</div><h2>READY TO MAKE <span class="gradient-text">YOUR MARK?</span></h2><p>Solo player? Duo partner? Three-person squad? Freestyle specialist? Pick your game and format, send your player details, and our team can review your application.</p><div class="register-shortcuts"><button class="shortcut open-register" data-game="Rocket League" data-mode="1v1" type="button"><span>↗</span> ROCKET LEAGUE</button><button class="shortcut open-register" data-game="VALORANT" data-mode="1v1 Skirmish" type="button"><span>↗</span> VALORANT</button><button class="shortcut open-register" data-game="League of Legends" data-mode="1v1 ARAM" type="button"><span>↗</span> LEAGUE OF LEGENDS</button></div><p class="small-note">League of Legends and VALORANT modes are listed for 2027. Selected-mode applications require the VXSK registration setup. Applying does not guarantee selection.</p></div><div class="register-side reveal"><div class="reg-step"><span>01</span><div><strong>CHOOSE YOUR GAME</strong><small>Rocket League, VALORANT or League of Legends.</small></div></div><div class="reg-step"><span>02</span><div><strong>SELECT YOUR MODE</strong><small>1v1, 2v2, 3v3, freestyles or an interest list.</small></div></div><div class="reg-step"><span>03</span><div><strong>SEND YOUR DETAILS</strong><small>In-game username and one way to contact you.</small></div></div></div></section>
-
-    <section class="section vxsk-cinema-section" id="videos" aria-labelledby="vxsk-cinema-heading">
-      <div class="shell section-head split-heading vxsk-cinema-intro"><div><div class="kicker"><span>06 /</span> FROM THE ARENA · 3 ORIGINAL CLIPS</div><h2 id="vxsk-cinema-heading">THE GAMEPLAY. <span class="gradient-text">UNFILTERED.</span></h2></div><p>Three full-width cinematic showcases. The original gameplay plays in the background, without blur, zoom, or dark video filters.</p></div>
-      <div class="vxsk-cinema-stack">
-        <section class="vxsk-cinema-scene" aria-label="Rocket League Reset Doubletap highlight" id="clip-doubletap" data-cinema>
-          <video class="vxsk-cinema-video" muted loop playsinline preload="none" poster="assets/media/reset-doubletap-poster.jpg" aria-label="Reset Doubletap gameplay"><source data-src="assets/media/reset-doubletap.mp4?v=12.8.34-hq-cinema-2" type="video/mp4"></video>
-          <div class="vxsk-cinema-info"><span class="vxsk-cinema-label">01 / ROCKET LEAGUE</span><h3>RESET <em>DOUBLETAP.</em></h3><p>Precision in the air. Every frame matters.</p></div>
-          <div class="vxsk-cinema-controls"><span class="vxsk-cinema-state" aria-live="polite">PREVIEW READY</span><button class="vxsk-cinema-button" type="button" data-cinema-toggle aria-label="Play Reset Doubletap video">▶ PLAY</button><button class="vxsk-cinema-button vxsk-cinema-sound" type="button" data-cinema-sound aria-label="Enable video sound" aria-pressed="false">🔇 SOUND OFF</button><a class="vxsk-cinema-open" href="assets/media/reset-doubletap.mp4?v=12.8.34-hq-cinema-2" target="_blank" rel="noopener noreferrer">OPEN FULL VIDEO ↗</a></div>
-        </section>
-        <section class="vxsk-cinema-scene" aria-label="League of Legends Pentakill Tris highlight" id="clip-pentakill" data-cinema>
-          <video class="vxsk-cinema-video" muted loop playsinline preload="none" poster="assets/media/pentakill-tris-poster.jpg" aria-label="Pentakill Tris gameplay"><source data-src="assets/media/pentakill-tris.mp4?v=12.8.34-hq-cinema-2" type="video/mp4"></video>
-          <div class="vxsk-cinema-info"><span class="vxsk-cinema-label">02 / LEAGUE OF LEGENDS</span><h3>PENTAKILL <em>TRIS.</em></h3><p>One fight. Five takedowns.</p></div>
-          <div class="vxsk-cinema-controls"><span class="vxsk-cinema-state" aria-live="polite">PREVIEW READY</span><button class="vxsk-cinema-button" type="button" data-cinema-toggle aria-label="Play Pentakill Tris video">▶ PLAY</button><button class="vxsk-cinema-button vxsk-cinema-sound" type="button" data-cinema-sound aria-label="Enable video sound" aria-pressed="false">🔇 SOUND OFF</button><a class="vxsk-cinema-open" href="assets/media/pentakill-tris.mp4?v=12.8.34-hq-cinema-2" target="_blank" rel="noopener noreferrer">OPEN FULL VIDEO ↗</a></div>
-        </section>
-        <section class="vxsk-cinema-scene" aria-label="VALORANT ACE highlight" id="clip-ace" data-cinema>
-          <video class="vxsk-cinema-video" muted loop playsinline preload="none" poster="assets/media/ace-poster.jpg" aria-label="ACE VALORANT gameplay"><source data-src="assets/media/ace.mp4?v=12.8.34-hq-cinema-2" type="video/mp4"></video>
-          <div class="vxsk-cinema-info"><span class="vxsk-cinema-label">03 / VALORANT</span><h3>THE <em>ACE.</em></h3><p>Five opponents. One final moment.</p></div>
-          <div class="vxsk-cinema-controls"><span class="vxsk-cinema-state" aria-live="polite">PREVIEW READY</span><button class="vxsk-cinema-button" type="button" data-cinema-toggle aria-label="Play ACE video">▶ PLAY</button><button class="vxsk-cinema-button vxsk-cinema-sound" type="button" data-cinema-sound aria-label="Enable video sound" aria-pressed="false">🔇 SOUND OFF</button><a class="vxsk-cinema-open" href="assets/media/ace.mp4?v=12.8.34-hq-cinema-2" target="_blank" rel="noopener noreferrer">OPEN FULL VIDEO ↗</a></div>
-        </section>
-      </div>
-      <div class="shell vxsk-cinema-footer"><a class="text-link media-more" href="https://www.youtube.com/@voxzan_05" target="_blank" rel="noopener noreferrer">MORE ON THE YOUTUBE CHANNEL ↗</a><span>FULL HD · 60 FPS SOURCE</span></div>
-    </section>
 
 <section class="section shell find-rival-section" id="find-rival" aria-labelledby="rival-title">
   <div class="rival-shell reveal"><div class="rival-heading"><div class="kicker"><span>FIND YOUR RIVAL /</span> PLAYER MATCHING</div><h2 id="rival-title">NO OPPONENT? <span class="gradient-text">WE GOT YOU.</span></h2><p>Playing Rocket League, VALORANT, or League of Legends but you don't have anyone to challenge? Tell the VXSK team what you play. We'll review your request and help coordinate a match. Your contact stays private.</p><p class="small-note">Sign in to VXSK first. Opponent requests now go to a separate private staff inbox.</p><div class="rival-pills"><span>1V1</span><span>2V2</span><span>3V3</span><span>FREESTYLE</span><span>TEAM MODES</span></div></div>
