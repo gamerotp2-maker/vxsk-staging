@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12.8.34-cinema-2">
+  <link rel="stylesheet" href="styles.css?v=12.8.35-social">
   <script src="video-showcase.js?v=12.8.34-cinema-2" defer></script>
   <script>
   // Apply saved visual mode before the first paint, preventing a video flash.
@@ -29,12 +29,12 @@
   <script src="arena-v8.js?v=12.8.7" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
   <script src="supabase-config.js?v=12.8.7" defer></script>
-  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.29" defer></script><script src="updates.js" defer></script>
+  <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.35-avatar-edit" defer></script><script src="updates.js" defer></script>
   <script defer src="vxsk-cover-utils.js?v=12.8.34"></script><script src="match-center-live.js?v=12.8.34" defer></script>
   <script src="vxsk-experience.js?v=12.8.34-music" defer></script>
   <script src="season-showcase.js?v=12.8.9" defer></script>
   <script src="chapter-transitions.js?v=12.8.7" defer></script>
-  <script src="community.js?v=12.8.34-avatar-hotfix-1" defer></script>
+  <script src="community.js?v=12.8.35-blocklist" defer></script>
   <script src="group-chat.js?v=12.8.28" defer></script><script src="vxsk-call-network.js?v=12.8.34" defer></script><script src="group-calls.js?v=12.8.34" defer></script>
   <script src="ui-polish.js?v=12.8.8" defer></script>
   <script src="friend-calls.js?v=12.8.34-outgoing-2" defer></script>
@@ -48,7 +48,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">V12.8.34</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">V12.8.35</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -70,7 +70,7 @@
       <button type="button" id="vxsk-call-ringtone-toggle" class="vxsk-call-ring-toggle" aria-label="Enable incoming call ringtone" aria-pressed="false" title="Enable incoming call ringtone">🔔 <span>RING OFF</span></button>
       <div id="vxsk-updates-widget" class="vxsk-updates-widget"><button type="button" id="vxsk-updates-toggle" class="vxsk-updates-toggle" aria-controls="vxsk-updates-panel" aria-expanded="false" aria-label="View VXSK announcements">✦ <span>UPDATES</span><b id="vxsk-updates-count" hidden>0</b></button><div id="vxsk-updates-panel" class="vxsk-updates-panel" hidden><strong>VXSK / NEW ANNOUNCEMENTS</strong><div id="vxsk-updates-list"><p class="updates-empty">Checking latest public announcements…</p></div><a href="#match-center">SEE ALL ANNOUNCEMENTS ↗</a></div></div>
       <button id="vxsk-low-lag-toggle" type="button" aria-pressed="false" title="Toggle low-lag display mode">⚡ LOW-LAG OFF</button><button id="music-toggle" class="music-toggle" type="button" aria-label="Enable background music" aria-pressed="false" title="Background music · click to play">♫ <span>OFF</span></button>
-      <span id="nav-user-chip" class="nav-user-chip" hidden><img id="nav-avatar" alt="" hidden><span class="nav-avatar-fallback" id="nav-avatar-fallback">V</span><span id="nav-nickname">PLAYER</span><span class="nav-security" id="nav-verified" hidden title="Two-step verification enabled">◆</span></span><a href="staff.html" id="nav-staff-link" class="nav-staff-link" hidden>STAFF COMMAND ↗</a><button class="account-nav open-account" type="button" aria-label="Open player account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5 20v-1.5c0-3 3.1-5.1 7-5.1s7 2.1 7 5.1V20"/></svg><span id="nav-account-label">SIGN IN</span></button><button class="nav-cta open-register" type="button" data-game="Rocket League" data-mode="1v1"><span>JOIN THE ARENA</span><span aria-hidden="true">↗</span></button>
+      <span id="nav-user-chip" class="nav-user-chip" hidden><span class="nav-avatar-zone"><img id="nav-avatar" alt="" hidden><span class="nav-avatar-fallback" id="nav-avatar-fallback">V</span><button type="button" class="vxsk-avatar-edit-button vxsk-avatar-edit-mini" aria-label="Change your VXSK profile picture" title="Change profile picture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4.3-1 11-11a2.1 2.1 0 0 0-3-3l-11 11L4 20Z"/></svg></button></span><span id="nav-nickname">PLAYER</span><span class="nav-security" id="nav-verified" hidden title="Two-step verification enabled">◆</span></span><a href="staff.html" id="nav-staff-link" class="nav-staff-link" hidden>STAFF COMMAND ↗</a><button class="account-nav open-account" type="button" aria-label="Open player account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5 20v-1.5c0-3 3.1-5.1 7-5.1s7 2.1 7 5.1V20"/></svg><span id="nav-account-label">SIGN IN</span></button><button class="nav-cta open-register" type="button" data-game="Rocket League" data-mode="1v1"><span>JOIN THE ARENA</span><span aria-hidden="true">↗</span></button>
       <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Open menu"><span></span><span></span><span></span></button>
     </nav>
     <div id="nav-hover-panel" class="nav-hover-panel" hidden aria-label="Navigation preview"></div>
@@ -244,7 +244,8 @@
         <div class="community-columns"><div class="community-panel"><h3>YOUR PLAYER DIRECTORY</h3><p>Your account nickname and uploaded avatar are automatically visible to signed-in VXSK accounts, including players, staff and owner. No emails or private contacts are displayed. You control whether friends see you Online or Offline.</p><div id="community-privacy-controls" class="community-privacy-controls">
           <label><input type="checkbox" id="community-share-presence"> Appear Online to my accepted friends (unchecked = Offline).</label>
           <button type="button" id="community-save-privacy">SAVE ONLINE STATUS ↗</button>
-        </div><p class="community-caution">You can block unwanted contacts at any time.</p></div><div class="community-panel"><h3>FRIENDS & REQUESTS</h3><p>Only accepted friends can privately message one another. Blocked users cannot contact you.</p><button type="button" id="community-refresh">REFRESH FRIENDS</button><div id="community-friends" class="community-friends"></div></div></div>
+        </div><p class="community-caution">You can block unwanted contacts at any time.</p></div><div class="community-panel"><h3>FRIENDS & REQUESTS</h3><p>Only accepted friends can privately message one another. Blocked users cannot contact you.</p><button type="button" id="community-refresh">REFRESH FRIENDS</button><div id="community-friends" class="community-friends"></div><a class="vxsk-blocklist-jump" href="#community-blocklist">⛔ VIEW MY BLOCKLIST ↓</a></div></div>
+        <section id="community-blocklist" class="community-panel vxsk-blocklist-panel" aria-labelledby="community-blocklist-title"><div class="vxsk-blocklist-heading"><div><h3 id="community-blocklist-title">⛔ MY BLOCKLIST <span id="community-blocked-count" aria-live="polite">(0)</span></h3><p>Only you can view this list. Blocked players cannot send you new friend requests or private messages. You can unblock them anytime.</p></div><button type="button" id="community-blocklist-refresh">REFRESH BLOCKLIST ↻</button></div><div id="community-blocked-list" class="community-friends" aria-live="polite"><p>Sign in to manage blocked players.</p></div></section>
         <section id="vxsk-challenges" class="community-panel vxsk-challenge-box" aria-label="My showmatch challenges"><h3>⚔ MY SHOWMATCH CHALLENGES</h3><p>Choose an accepted friend as your opponent. They accept first; VXSK staff then schedule and publish the showmatch.</p><button id="vxsk-challenges-refresh" type="button">↻ REFRESH CHALLENGES</button><div id="vxsk-challenges-list" class="community-friends" aria-live="polite">Sign in to see challenges.</div></section>
         <section id="community-chat" class="community-chat" hidden aria-label="Private friend conversation"><div class="community-chat-head"><h3 id="community-chat-with">YOUR CONVERSATION</h3><button type="button" id="community-chat-close" aria-label="Close conversation">×</button></div><div id="community-messages" class="community-messages" role="log" aria-live="polite"></div><form id="community-message-form"><label for="community-message-text" class="sr-only">Message accepted friend</label><input id="community-message-text" maxlength="500" autocomplete="off" required placeholder="Type a private message…"><button type="submit">SEND ↗</button></form><p class="community-caution">Only accepted friends can message each other. Never share passwords, codes, addresses or private details.</p></section>
         <section id="vxsk-groups" class="vxsk-group-section" aria-labelledby="vxsk-groups-heading">
@@ -365,7 +366,7 @@
       </div>
       <div id="auth-panel-profile" class="auth-panel" data-auth-panel="profile" hidden>
         <p class="profile-dashboard-kicker">YOUR VXSK PLAYER DASHBOARD</p>
-        <div class="account-welcome"><span class="profile-avatar"><img id="account-avatar" alt="Your VXSK avatar" hidden><span id="avatar-placeholder" aria-hidden="true">V</span></span><div><b>YOU'RE SIGNED IN</b><strong id="account-display-name" class="account-display-name">PLAYER</strong><span id="account-email" class="account-email"></span><span id="profile-mfa-status" class="profile-mfa-status">2FA NOT ENABLED</span></div></div>
+        <div class="account-welcome"><span class="profile-avatar"><img id="account-avatar" alt="Your VXSK avatar" hidden><span id="avatar-placeholder" aria-hidden="true">V</span><button type="button" class="vxsk-avatar-edit-button" aria-label="Change your VXSK profile picture" title="Change profile picture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4.3-1 11-11a2.1 2.1 0 0 0-3-3l-11 11L4 20Z"/></svg><span class="sr-only">Change photo</span></button></span><div><b>YOU'RE SIGNED IN</b><strong id="account-display-name" class="account-display-name">PLAYER</strong><span id="account-email" class="account-email"></span><span id="profile-mfa-status" class="profile-mfa-status">2FA NOT ENABLED</span></div></div>
         <div class="account-dashboard-grid">
         <section class="account-option my-applications" id="my-applications" aria-labelledby="my-applications-title">
           <div class="my-apps-header">

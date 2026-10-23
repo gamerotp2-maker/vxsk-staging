@@ -91,10 +91,21 @@
     avatarCtx.clearRect(0,0,side,side);
     avatarCtx.drawImage(cropImage,(cropImage.width-srcSide)/2+cropOffsetX,(cropImage.height-srcSide)/2+cropOffsetY,srcSide,srcSide,0,0,side,side);
   }
+  // Quick-edit from the profile and compact navigation avatar. File picker must
+  // be opened synchronously inside the click gesture (browser permission).
+  $$('.vxsk-avatar-edit-button').forEach(button=>button.addEventListener('click',()=>{
+    if(!currentUser || mfaRequired){open('signin',button);return;}
+    open('profile',button);
+    const chooser=$('#avatar-file');
+    if(!chooser)return;
+    chooser.value=''; // allow choosing the same photo again
+    chooser.click();
+  }));
   $('#avatar-file')?.addEventListener('change',()=>{
     if(cropImageUrl)URL.revokeObjectURL(cropImageUrl);
     cropImageUrl=null;cropImage=null;$('#avatar-editor').hidden=true;
     const file=$('#avatar-file').files?.[0];
+    if(file && dialog.open){$('#avatar-form')?.scrollIntoView({behavior:'smooth',block:'center'});}
     if(!file)return;
     if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024){notify('Choose PNG, JPG or WebP up to 10 MB.','error');return;}
     cropImageUrl=URL.createObjectURL(file);

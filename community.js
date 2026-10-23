@@ -5,6 +5,7 @@
   const search=$('community-search'), results=$('community-results'), info=$('community-feedback');
   if(!search||!results)return;
   const friendsEl=$('community-friends');
+  const blockedEl=$('community-blocked-list'), blockedCount=$('community-blocked-count');
   const privacyControls=$('community-privacy-controls'),sharePresence=$('community-share-presence');
   const chat=$('community-chat'),chatTitle=$('community-chat-with'),messages=$('community-messages');
   let client=null,user=null, snapshot=null,peer=null,peerName='',lastTerm='',lastIdentity=null;
@@ -152,6 +153,7 @@
       lastIdentity=user?.id||null;
       snapshot=null;peer=null;chat.hidden=true;messages.replaceChildren();
       signedAvatars.clear();avatarFallbacks.clear();renderMiniFriends([]);
+      renderBlocklist([]);
       friendsEl.replaceChildren(el('p',user?'Refreshing friends…':'Sign in to manage friends.'));
       if(navFriendsPanel){navFriendsPanel.hidden=true;navFriendsToggle?.setAttribute('aria-expanded','false');document.querySelector('.header')?.removeAttribute('data-friends-open');document.dispatchEvent(new Event('vxsk:friends-panel-change'));}
     }
@@ -292,16 +294,21 @@
     const players=response.data||[];
     for(const p of players){
       const existing=(snapshot?.links||[]).find(x=>x.peer_id===p.user_id);
-      const buttons=[action(existing?.status==='accepted'?'ALREADY FRIENDS':existing?.status==='pending'?'REQUEST PENDING':'ADD FRIEND ＋',async()=>{
+      const canSendAgain=existing?.status==='rejected' && !existing.outgoing;
+      const requestLabel=existing?.status==='accepted'?'ALREADY FRIENDS':
+        existing?.status==='pending'?'REQUEST PENDING':
+        existing?.status==='rejected'&&existing.outgoing?'REQUEST DECLINED':
+        canSendAgain?'SEND NEW REQUEST ↗':'ADD FRIEND ＋';
+      const buttons=[action(requestLabel,async()=>{
         const r=await rpc('vxsk_social_request',{p_peer:p.user_id});
-        if(r.ok)note(r.data?'Friend request sent! Your friend can accept it in Friends & Requests.':'Already requested, or the player is blocked.');
+        if(r.ok)note(r.data?'Friend request sent! Your friend can accept it in Friends & Requests.':'Request not sent. Check whether it is already pending, blocked, or rate-limited.');
         await refreshState();
       }), action('BLOCK',async()=>{
         if(!confirm('Block this player? They will not be able to find or message you.'))return;
         const r=await rpc('vxsk_social_block',{p_peer:p.user_id,p_block:true});
         if(r.ok){note('Player blocked.');handleSearch();await refreshState();}
       },'danger')];
-      buttons[0].disabled=Boolean(existing&&['accepted','pending'].includes(existing.status));
+      buttons[0].disabled=Boolean(existing&&(['accepted','pending'].includes(existing.status)||(existing.status==='rejected'&&existing.outgoing)));
       results.append(makeEntry(p.nickname,'VXSK PLAYER',buttons,p.user_id,p.avatar_path));
     }
     note(players.length?'Choose Add Friend to send a request. Private contact details are never shown.':'No player found. Check the spelling or try another nickname.');
@@ -312,7 +319,7 @@
     const byPeer=new Map();
     const priority={accepted:3,pending:2,rejected:1};
     for(const link of rows){
-      if(!link||typeof link.peer_id!=='string'||!link.peer_id||!['accepted','pending'].includes(link.status))continue;
+      if(!link||typeof link.peer_id!=='string'||!link.peer_id||!['accepted','pending','rejected'].includes(link.status))continue;
       const previous=byPeer.get(link.peer_id);
       if(!previous){byPeer.set(link.peer_id,{...link});continue;}
       const newer=(priority[link.status]||0)>(priority[previous.status]||0);
@@ -336,6 +343,7 @@
       snapshot=null;
       friendsEl.replaceChildren(el('p','Sign in to manage friends.'));
       renderMiniFriends([]);
+      renderBlocklist([]);
       return;
     }
     const requestedUser=user.id;
@@ -356,15 +364,16 @@
     // source of duplicate YOUR FRIENDS sections during overlapping refreshes.
     friendsEl.replaceChildren();
     renderMiniFriends(links);
-    if(!links.length&&!blocks.length)friendsEl.append(el('p','No friends or invitations yet.'));
+    if(!links.length)friendsEl.append(el('p','No friends or invitations yet.'));
     const sortedLinks=[
       ...links.filter(x=>x.status==='pending'&&!x.outgoing),
       ...links.filter(x=>x.status==='accepted').sort((a,b)=>Number(b.online===true)-Number(a.online===true)||String(a.nickname).localeCompare(String(b.nickname))),
-      ...links.filter(x=>x.status==='pending'&&x.outgoing)
+      ...links.filter(x=>x.status==='pending'&&x.outgoing),
+      ...links.filter(x=>x.status==='rejected'&&!x.outgoing)
     ];
     let previousGroup='';
     for(const item of sortedLinks){
-      const group=item.status==='accepted'?'YOUR FRIENDS':item.outgoing?'SENT REQUESTS':'FRIEND REQUESTS';
+      const group=item.status==='accepted'?'YOUR FRIENDS':item.status==='rejected'?'PREVIOUSLY DECLINED':item.outgoing?'SENT REQUESTS':'FRIEND REQUESTS';
       if(group!==previousGroup){friendsEl.append(el('h4',group,'community-group-title'));previousGroup=group;}
 
       let state=item.status==='accepted'?'FRIEND':item.status==='pending'?(item.outgoing?'INVITE SENT':'NEW INVITE'):'DECLINED';
@@ -373,6 +382,11 @@
         a.push(action('ACCEPT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:true});if(r.ok)await refreshState();}));
         a.push(action('REJECT',async()=>{const r=await rpc('vxsk_social_answer',{p_peer:item.peer_id,p_accept:false});if(r.ok&&r.data){note('Friend request declined.');await refreshState();}else if(r.ok){note('This request is no longer pending. Refresh your friends.');await refreshState();}},'danger'));
       }
+      if(item.status==='rejected'&&!item.outgoing)a.push(action('SEND NEW REQUEST ↗',async()=>{
+        const r=await rpc('vxsk_social_request',{p_peer:item.peer_id});
+        if(r.ok)note(r.data?'New request sent!':'Request not sent. Check blocked status or the daily request limit.');
+        await refreshState();
+      }));
       if(item.status==='accepted')a.push(action('CHALLENGE ⚔',()=>challengeFriend(item.peer_id,item.nickname||'PLAYER')));
       if(item.status==='accepted')a.push(action('MESSAGE',()=>openChat(item.peer_id,item.nickname||'PLAYER')));
       if(item.status==='accepted'){a.push(action('AUDIO CALL',()=>window.VXSKCalls?.start(item.peer_id,'audio',item.nickname||'PLAYER')));a.push(action('VIDEO CALL',()=>window.VXSKCalls?.start(item.peer_id,'video',item.nickname||'PLAYER')));}
@@ -382,13 +396,24 @@
       },'danger'));
       friendsEl.append(makeEntry(item.nickname||'VXSK PLAYER',state,a,item.peer_id,item.avatar_path,item.status==='accepted'&&Boolean(item.online)));
     }
-    for(const item of blocks){
-      friendsEl.append(makeEntry(item.nickname||'BLOCKED PLAYER','BLOCKED',[action('UNBLOCK',async()=>{
-        const r=await rpc('vxsk_social_block',{p_peer:item.peer_id,p_block:false});if(r.ok)await refreshState();
-      })]));
-    }
+    renderBlocklist(blocks);
     void hydrateFriendsAvatars(links);
     void refreshAlerts({silent:true});
+  }
+  function renderBlocklist(blocks=[]){
+    if(!blockedEl)return;
+    blockedEl.replaceChildren();
+    if(blockedCount)blockedCount.textContent='('+blocks.length+')';
+    if(!user){blockedEl.append(el('p','Sign in to manage blocked players.'));return;}
+    if(!blocks.length){blockedEl.append(el('p','No blocked players.'));return;}
+    for(const item of [...blocks].sort((a,b)=>String(a.nickname||'').localeCompare(String(b.nickname||'')))){
+      const unblock=action('UNBLOCK',async()=>{
+        const r=await rpc('vxsk_social_block',{p_peer:item.peer_id,p_block:false});
+        if(r.ok&&r.data){note('Player unblocked. You may send a new friend request if you both wish.');await refreshState();}
+        else if(r.ok)note('Could not unblock this player.');
+      });
+      blockedEl.append(makeEntry(item.nickname||'BLOCKED PLAYER','BLOCKED',[unblock],item.peer_id));
+    }
   }
   async function challengeFriend(id,name){
     const game=prompt('Challenge '+name+' in which game? Rocket League, VALORANT, or League of Legends','Rocket League');
@@ -513,6 +538,7 @@
   search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();handleSearch();}});
   $('vxsk-challenges-refresh')?.addEventListener('click',refreshChallenges);
   $('community-refresh').addEventListener('click',refreshState);
+  $('community-blocklist-refresh')?.addEventListener('click',()=>void refreshState());
   $('community-chat-close').addEventListener('click',closeChat);
   $('community-message-form').addEventListener('submit',async e=>{
     e.preventDefault();if(!peer)return;
