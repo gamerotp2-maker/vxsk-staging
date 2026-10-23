@@ -1,0 +1,28 @@
+/* VXSK STEP 4 — Public team roster. Scoped: does not alter Auth/Supabase roles. */
+.vxsk-team-section{padding-bottom:clamp(60px,9vw,120px)}
+.vxsk-team-roster{display:flex;flex-direction:column;gap:clamp(34px,5vw,60px);margin-top:30px}
+.vxsk-team-group-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-bottom:19px}
+.vxsk-team-rule{width:4px;height:27px;background:linear-gradient(#a539ff,#298eff);box-shadow:0 0 20px #793ffa70}
+.vxsk-team-group-head h3{margin:0;color:#f6f5ff;font:900 clamp(23px,2.6vw,34px)/1.05 'Barlow Condensed',Impact,sans-serif;letter-spacing:.035em}
+.vxsk-team-group-head>span:last-child{margin-left:auto;font:700 11px/1.5 'Space Grotesk',sans-serif;letter-spacing:.07em;color:#a6acd5}
+.vxsk-team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(13px,2.2vw,25px);align-items:stretch}
+.vxsk-team-group--leadership .vxsk-team-grid{grid-template-columns:minmax(0,475px);justify-content:start}
+.vxsk-team-group--management .vxsk-team-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.vxsk-team-group--community .vxsk-team-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:850px}
+.vxsk-team-card{min-width:0;overflow:hidden;border-radius:17px;background:linear-gradient(145deg,#1b1940,#080c27);border:1px solid #7460b855;box-shadow:0 15px 38px #06081866;transition:transform .25s,border-color .25s,box-shadow .25s}
+.vxsk-team-card--lead{border-color:#ab76ef9e;box-shadow:0 14px 44px #4e299837}
+.vxsk-team-card:hover{transform:translateY(-4px);border-color:#a681f7;box-shadow:0 20px 55px #39207655}
+.vxsk-team-image{aspect-ratio:1122/1402;width:100%;overflow:hidden;background:#fff}
+.vxsk-team-image img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:none!important;transform:none!important}
+.vxsk-team-info{display:flex;flex-direction:column;gap:6px;min-height:120px;padding:17px 18px 20px;background:linear-gradient(160deg,#1b1d49,#0b102b)}
+.vxsk-team-tier{font:800 10px/1.3 'Space Grotesk',sans-serif;color:#aa9ef2;letter-spacing:.09em}
+.vxsk-team-tier span{color:#5c6fa8;margin-inline:2px}
+.vxsk-team-info h3{font:900 clamp(28px,3vw,42px)/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.03em;margin:1px 0 0;color:#fff}
+.vxsk-team-info p{font:650 clamp(12px,1.2vw,15px)/1.45 'Space Grotesk',sans-serif;margin:0;color:#d9d9fb;overflow-wrap:anywhere}
+.vxsk-team-group--management .vxsk-team-info{padding:15px 13px 17px;min-height:136px}
+.vxsk-team-group--management .vxsk-team-info h3{font-size:clamp(26px,2.4vw,35px)}
+.vxsk-team-group--management .vxsk-team-info p{font-size:clamp(11px,.93vw,14px)}
+@media(max-width:1120px){.vxsk-team-group--management .vxsk-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vxsk-team-group--management .vxsk-team-info p{font-size:13px}.vxsk-team-group--management .vxsk-team-info h3{font-size:32px}}
+@media(max-width:680px){.vxsk-team-roster{gap:33px}.vxsk-team-grid,.vxsk-team-group--community .vxsk-team-grid,.vxsk-team-group--management .vxsk-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vxsk-team-group--leadership .vxsk-team-grid{grid-template-columns:minmax(0,350px);justify-content:center}.vxsk-team-info,.vxsk-team-group--management .vxsk-team-info{min-height:137px;padding:12px 11px 16px}.vxsk-team-info h3,.vxsk-team-group--management .vxsk-team-info h3{font-size:clamp(25px,6vw,34px)}.vxsk-team-info p,.vxsk-team-group--management .vxsk-team-info p{font-size:12px}.vxsk-team-tier{font-size:9px}.vxsk-team-group-head>span:last-child{margin-left:0;width:100%;font-size:10px}}
+@media(max-width:390px){.vxsk-team-grid,.vxsk-team-group--community .vxsk-team-grid,.vxsk-team-group--management .vxsk-team-grid{grid-template-columns:1fr}.vxsk-team-card{max-width:340px;margin-inline:auto;width:100%}.vxsk-team-info,.vxsk-team-group--management .vxsk-team-info{min-height:auto}}
+@media(prefers-reduced-motion:reduce){.vxsk-team-card{transition:none}.vxsk-team-card:hover{transform:none}}

@@ -1,0 +1,65 @@
+/* VXSK Step 5 — Website readability and navigation polish, 2026.
+ * Focused visual refinements only: do not change IDs, permission gates, JS behaviors,
+ * staff poster crop, cinematic backgrounds, or audio/video call components.
+ */
+:root {
+  --vxsk-polish-edge: rgba(169, 150, 241, .39);
+  --vxsk-polish-focus: #77d7ff;
+  --vxsk-polish-soft: #c1c6e0;
+}
+/* Crisp text and more consistent spacing in the public site. */
+body { text-rendering: optimizeLegibility; }
+#main .section-head p, #main .about-copy p,
+#main .register-content p, #main .community-panel p,
+#main .sponsor-section p, #main .members-section p {
+  color: var(--vxsk-polish-soft);
+  line-height: 1.7;
+}
+#main .section-head > p { font-size: clamp(13px, 1.06vw, 16px); max-width: 65ch; }
+#main .kicker {font-size: clamp(11px, .85vw, 13px);letter-spacing: .16em;color: #b6a8ef;}
+#main .section-head h2, #main .founder-copy h2 {
+  max-width: 100%;
+  line-height: 1.03;
+  overflow-wrap: normal;
+}
+/* Visually tidy navigation while retaining every destination and current controls. */
+.nav-links {align-items:center;row-gap: 9px;}
+.nav-links a {display: inline-flex; align-items:center; gap:7px; font-size: clamp(12px, .83vw, 14px); font-weight: 650; line-height: 1.15; min-height: 32px; white-space: nowrap; border-radius:8px; padding:7px 8px; transition:color .2s, background-color .2s;}
+.nav-links a:hover, .nav-links a:focus-visible {color:#fff;background:rgba(127,93,239,.19);}
+.vxsk-nav-icon {flex-shrink:0;width:14px;height:14px;}
+.nav-links a[href="arena.html"] {color:#ead9ff;font-weight:800;}
+/* Clear controls and readable labels throughout the public interface. */
+#main :is(button, a.btn, .shortcut, .community-action) {text-underline-offset:3px;}
+#main :is(.btn,.shortcut,.season-phase-cta) {
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+#main :is(.game-card,.mode-card,.season-phase-card,.community-panel,.register-section) {
+  border-color: var(--vxsk-polish-edge);
+}
+#main .game-bottom p, #main .season-phase-description,
+#main .match-disclaimer {font-size: clamp(12px, .9vw, 14px);line-height:1.65;}
+/* Friends popover should be compact: no repeated explanations or tiny controls. */
+.nav-friends-helper {font-size:13px;line-height:1.55;color:#c0c3e1;max-width:55ch;}
+.nav-friends-panel .nav-friends-top strong {letter-spacing:.045em;}
+.nav-friends-footer {gap:8px;}
+.nav-friends-footer :is(a,button) {min-height:36px;}
+/* Keep keyboard focus visible, avoiding hover-only navigation cues. */
+:where(.nav, #main, .footer) :is(a,button,input,textarea,select):focus-visible {
+  outline: 2px solid var(--vxsk-polish-focus);
+  outline-offset:3px;
+}
+/* Improve legibility on smaller devices, without hiding sections or controls. */
+@media (max-width: 1270px) {
+  .nav-links a {font-size: 13px; min-height: 38px;}
+}
+@media (max-width: 760px) {
+  .nav-links a {font-size: 14px; min-height: 42px; padding: 10px 12px;}
+  #main .section-head > p {font-size: 14px;}
+  #main .kicker {font-size: 11px;}
+  .nav-friends-helper {font-size:12px;}
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-links a {transition: none;}
+}

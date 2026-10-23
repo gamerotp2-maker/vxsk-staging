@@ -50,3 +50,18 @@
   .vxsk-world-actions{justify-content:flex-start}
 }
 @media(prefers-reduced-motion:reduce){.vxsk-world-film{transition:none!important}}
+
+/* STEP 3 title hotfix: keep "FIVE TAKEDOWNS. ONE PENTAKILL." inside its caption panel. */
+.vxsk-world-copy h2{
+  font-size:clamp(38px,4.9vw,72px);
+  line-height:.94;
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+@media (max-width:700px){
+  .vxsk-world-copy h2{
+    font-size:clamp(34px,9vw,56px);
+    line-height:.98;
+  }
+}

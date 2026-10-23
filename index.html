@@ -18,6 +18,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=12.8.35-social">
   <link rel="stylesheet" href="vxsk-background-videos.css?v=12.8.36-bg1">
+  <link rel="stylesheet" href="vxsk-staff-cards.css?v=12.8.36-team4">
+  <link rel="stylesheet" href="vxsk-global-polish.css?v=12.8.36-step5">
   <script src="video-showcase.js?v=12.8.36-bg1" defer></script>
   <script>
   // Apply saved visual mode before the first paint, preventing a video flash.
@@ -66,7 +68,7 @@
         <button id="nav-friends-toggle" class="nav-community-mini" type="button" aria-expanded="false" aria-controls="nav-friends-panel" aria-label="Open friends and requests" title="Friends and requests">
           <svg class="nav-community-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12.2a3.7 3.7 0 1 0 0-7.4 3.7 3.7 0 0 0 0 7.4Zm6.4-1.1a2.9 2.9 0 1 0 0-5.8 2.9 2.9 0 0 0 0 5.8ZM4.7 19.2c0-2.8 2.9-4.8 6.3-4.8s6.3 2 6.3 4.8v.8H4.7v-.8Zm12.2.8c0-1.8-.8-3.3-2.1-4.4 2.7.1 4.9 1.7 4.9 4v.4h-2.8Z" fill="currentColor"/></svg><span id="nav-friend-count" class="nav-friend-count" hidden></span></button>
         <button id="nav-add-friend" class="nav-community-mini" type="button" aria-label="Search and add a friend" title="Add friend">＋</button>
-        <div id="nav-friends-panel" class="nav-friends-panel" hidden><div class="nav-friends-top"><strong>FRIENDS & REQUESTS</strong><button id="nav-friends-close" type="button" aria-label="Close friends panel">×</button></div><p class="nav-friends-helper">Search players, tap Add Friend, and manage requests here. Avatars appear automatically; each player chooses Online or Offline.</p><div id="nav-friends-entries" class="nav-friends-entries" aria-live="polite"><p>Sign in to see your friends.</p></div><div class="nav-friends-footer"><button id="nav-friends-refresh" type="button">REFRESH ↻</button><button id="nav-friends-add" type="button">ADD FRIEND ＋</button><a href="#community" id="nav-friends-manage">MORE ↗</a></div></div>
+        <div id="nav-friends-panel" class="nav-friends-panel" hidden><div class="nav-friends-top"><strong>FRIENDS & REQUESTS</strong><button id="nav-friends-close" type="button" aria-label="Close friends panel">×</button></div><p class="nav-friends-helper">Search players, send requests, and manage friends in one place.</p><div id="nav-friends-entries" class="nav-friends-entries" aria-live="polite"><p>Sign in to see your friends.</p></div><div class="nav-friends-footer"><button id="nav-friends-refresh" type="button">REFRESH ↻</button><button id="nav-friends-add" type="button">ADD FRIEND ＋</button><a href="#community" id="nav-friends-manage">MORE ↗</a></div></div>
       </div>
       <button type="button" id="vxsk-call-ringtone-toggle" class="vxsk-call-ring-toggle" aria-label="Enable incoming call ringtone" aria-pressed="false" title="Enable incoming call ringtone">🔔 <span>RING OFF</span></button>
       <div id="vxsk-updates-widget" class="vxsk-updates-widget"><button type="button" id="vxsk-updates-toggle" class="vxsk-updates-toggle" aria-controls="vxsk-updates-panel" aria-expanded="false" aria-label="View VXSK announcements">✦ <span>UPDATES</span><b id="vxsk-updates-count" hidden>0</b></button><div id="vxsk-updates-panel" class="vxsk-updates-panel" hidden><strong>VXSK / NEW ANNOUNCEMENTS</strong><div id="vxsk-updates-list"><p class="updates-empty">Checking latest public announcements…</p></div><a href="#match-center">SEE ALL ANNOUNCEMENTS ↗</a></div></div>
@@ -255,10 +257,48 @@
   </form></div>
 </section>
 
-    <section class="section shell staff-section" id="staff" aria-labelledby="staff-title">
- <div class="section-head split-heading reveal"><div><div class="kicker"><span>THE PEOPLE /</span> BEHIND THE ARENA</div><h2 id="staff-title">MEET THE <span class="gradient-text">CREW.</span></h2></div><p>The voices, organizers, moderators and creative team that keep VXSK running.</p></div>
- <div class="staff-grid"><article class="staff-card reveal" style="--staff-delay:65ms"><div class="staff-photo"><img src="assets/staff-medo.webp" alt="VXSK staff photo: Medo" loading="lazy"><span class="staff-number">TEAM // 01</span></div><div class="staff-meta"><div class="staff-name-row"><h3>MEDO</h3><span class="staff-sigil">✦</span></div><p>Co-Caster <span class="staff-join">&amp;</span> Analyst</p></div></article><article class="staff-card reveal" style="--staff-delay:130ms"><div class="staff-photo"><img src="assets/staff-dragon.webp" alt="VXSK staff photo: Dragon" loading="lazy"><span class="staff-number">TEAM // 02</span></div><div class="staff-meta"><div class="staff-name-row"><h3>DRAGON</h3><span class="staff-sigil">✦</span></div><p>Organizer <span class="staff-join">&amp;</span> Chat Moderator</p></div></article><article class="staff-card reveal" style="--staff-delay:195ms"><div class="staff-photo"><img src="assets/staff-ayoub-2026.jpg" alt="VXSK staff photo: Ayoub" loading="lazy"><span class="staff-number">TEAM // 03</span></div><div class="staff-meta"><div class="staff-name-row"><h3>AYOUB</h3><span class="staff-sigil">✦</span></div><p>Chat Moderator <span class="staff-join">&amp;</span> Referee</p></div></article><article class="staff-card reveal" style="--staff-delay:260ms"><div class="staff-photo"><img src="assets/staff-shark.webp" alt="VXSK staff photo: Shark" loading="lazy"><span class="staff-number">TEAM // 04</span></div><div class="staff-meta"><div class="staff-name-row"><h3>SHARK</h3><span class="staff-sigil">✦</span></div><p>Co-Founder <span class="staff-join">&amp;</span> Manager</p></div></article><article class="staff-card reveal" style="--staff-delay:325ms"><div class="staff-photo"><img src="assets/staff-dyfe-2026.png" alt="VXSK staff photo: Dyfe" loading="lazy"><span class="staff-number">TEAM // 05</span></div><div class="staff-meta"><div class="staff-name-row"><h3>DYFE</h3><span class="staff-sigil">✦</span></div><p>Social Media Manager <span class="staff-join">&amp;</span> Graphic Designer</p></div></article><article class="staff-card reveal staff-card--cabaka" style="--staff-delay:390ms"><div class="staff-photo"><img src="assets/staff-cabaka-2026.png" alt="VXSK staff photo: Cabaka" loading="lazy"><span class="staff-number">TEAM // 06</span></div><div class="staff-meta"><div class="staff-name-row"><h3>CABAKA</h3><span class="staff-sigil">✦</span></div><p>League of Legends Manager</p></div></article></div>
- <p class="staff-caption reveal">The VXSK team · Co-founded by Voxzan and Shark · Managed and hosted by the VXSK crew.</p>
+    <section class="section shell staff-section vxsk-team-section" id="staff" aria-labelledby="staff-title">
+  <div class="section-head split-heading reveal"><div><div class="kicker"><span>THE PEOPLE /</span> BEHIND THE ARENA</div><h2 id="staff-title">MEET THE <span class="gradient-text">CREW.</span></h2></div><p>The leaders, managers, creators and community team behind VXSK.</p></div>
+  <div class="vxsk-team-roster">
+<div class="vxsk-team-group vxsk-team-group--leadership" aria-label="01 / CO-FOUNDER">
+      <div class="vxsk-team-group-head"><span class="vxsk-team-rule" aria-hidden="true"></span><h3>01 / CO-FOUNDER</h3><span>VXSK LEADERSHIP</span></div>
+      <div class="vxsk-team-grid">
+<article class="vxsk-team-card vxsk-team-card--lead" aria-label="SHARK — Co-Founder of VXSK & Analyst">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-shark-2026.webp" alt="Official VXSK profile poster for SHARK" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">LEADERSHIP <span aria-hidden="true">/</span> 01</span><h3>SHARK</h3><p>Co-Founder of VXSK & Analyst</p></div>
+    </article>
+</div>
+    </div><div class="vxsk-team-group vxsk-team-group--management" aria-label="02 / OPERATIONS & MANAGEMENT">
+      <div class="vxsk-team-group-head"><span class="vxsk-team-rule" aria-hidden="true"></span><h3>02 / OPERATIONS & MANAGEMENT</h3><span>EVENT ORGANIZATION · GAME MANAGEMENT · MEDIA</span></div>
+      <div class="vxsk-team-grid">
+<article class="vxsk-team-card" aria-label="DRAGON — Organizer & Chat Moderator">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-dragon-2026.webp" alt="Official VXSK profile poster for DRAGON" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">OPERATIONS <span aria-hidden="true">/</span> 02</span><h3>DRAGON</h3><p>Organizer & Chat Moderator</p></div>
+    </article><article class="vxsk-team-card" aria-label="CABAKA — League of Legends Manager">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-cabaka-2026.webp" alt="Official VXSK profile poster for CABAKA" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">GAME MANAGEMENT <span aria-hidden="true">/</span> 03</span><h3>CABAKA</h3><p>League of Legends Manager</p></div>
+    </article><article class="vxsk-team-card" aria-label="SELYM — VALORANT Manager">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-selym-2026.webp" alt="Official VXSK profile poster for SELYM" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">GAME MANAGEMENT <span aria-hidden="true">/</span> 04</span><h3>SELYM</h3><p>VALORANT Manager</p></div>
+    </article><article class="vxsk-team-card" aria-label="DYFE — Social Media Manager & Graphic Designer">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-dyfe-2026.webp" alt="Official VXSK profile poster for DYFE" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">MEDIA & DESIGN <span aria-hidden="true">/</span> 05</span><h3>DYFE</h3><p>Social Media Manager & Graphic Designer</p></div>
+    </article>
+</div>
+    </div><div class="vxsk-team-group vxsk-team-group--community" aria-label="03 / BROADCAST & COMMUNITY">
+      <div class="vxsk-team-group-head"><span class="vxsk-team-rule" aria-hidden="true"></span><h3>03 / BROADCAST & COMMUNITY</h3><span>CASTING · ANALYSIS · MODERATION</span></div>
+      <div class="vxsk-team-grid">
+<article class="vxsk-team-card" aria-label="MEDO — Co-Caster & Analyst">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-medo-2026.webp" alt="Official VXSK profile poster for MEDO" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">BROADCAST <span aria-hidden="true">/</span> 06</span><h3>MEDO</h3><p>Co-Caster & Analyst</p></div>
+    </article><article class="vxsk-team-card" aria-label="AYOUB — Chat Moderator & Referee">
+      <div class="vxsk-team-image"><img src="assets/vxsk-team-ayoub-2026.webp" alt="Official VXSK profile poster for AYOUB" loading="eager" decoding="async" width="980" height="1225"></div>
+      <div class="vxsk-team-info"><span class="vxsk-team-tier">COMMUNITY <span aria-hidden="true">/</span> 07</span><h3>AYOUB</h3><p>Chat Moderator & Referee</p></div>
+    </article>
+</div>
+    </div>
+  </div>
+  <p class="staff-caption reveal">The VXSK team · Created by Voxzan &amp; Shark · Public team roles shown here do not grant account permissions.</p>
 </section>
 
 <section class="section shell founders-section" id="founders"><div class="founder-image-wrap reveal"><div class="founder-gallery"><div class="founder-image founder-image-main"><img src="assets/founder-voxzan-1.webp" alt="Outdoor portrait of Voxzan" width="900" height="1200" loading="lazy"></div><div class="founder-image founder-image-alt"><img src="assets/founder-voxzan-2.webp" alt="Mirror portrait of Voxzan" width="900" height="1200" loading="lazy"></div></div><div class="founder-image-caption">VOXZAN — OWNER / STREAMER / GAME CASTER <span>✦</span></div></div><div class="founder-copy reveal"><div class="kicker"><span>07 /</span> BEHIND THE NAME</div><h2>THE FACE OF <br><span class="gradient-text">VXSK.</span></h2><p class="founder-names">VOXZAN</p><p>Voxzan is the owner of VXSK, a streamer, and a game caster building a professional arena for talented players, creators, and passionate gaming communities.</p><p>Through live events, showmatches, and content, Voxzan is shaping VXSK into a place where new rivalries can grow and new legends can rise.</p><p>The vision is clear: clean competition, strong branding, and unforgettable gaming moments.</p><div class="founder-signoff">OWNER / STREAMER / GAME CASTER <span>↗</span></div></div></section>
