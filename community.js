@@ -174,6 +174,8 @@
   // NEVER stop rendering a request or its ACCEPT / REJECT actions.
   async function addAvatar(target,peerId,avatarRef){
     if(!target || !peerId || typeof avatarRef!=='string')return;
+    // Group, call and friends avatars share the same identity guard.
+    target.dataset.vxskPeer=peerId;
     const storage=client?.storage;
     try{
       const key=avatarRef;
@@ -198,17 +200,29 @@
       }
       if(!target.isConnected || lastIdentity!==user?.id)return;
       const img=document.createElement('img');
-      img.alt='';img.decoding='async';img.loading='lazy';img.referrerPolicy='no-referrer';
-      // Keep the fallback initial in place until the image actually loads.
-      img.onload=()=>{if(target.isConnected && lastIdentity===user?.id)target.replaceChildren(img);};
-      img.onerror=()=>{
+      img.alt='';
+      img.decoding='async';
+      // Critical: a detached lazy image may NEVER start downloading. The
+      // initials are replaced only after load, so load eagerly off-DOM.
+      // These are tiny avatars, not page-sized media.
+      img.loading='eager';
+      img.referrerPolicy='no-referrer';
+      const apply=()=>{
+        if(target.isConnected && target.dataset.vxskPeer===peerId &&
+           lastIdentity===user?.id && !target.contains(img))target.replaceChildren(img);
+      };
+      const fail=()=>{
         signedAvatars.delete(key);
         const fallback=avatarFallbacks.get(key);
         if(fallback && trustedRemoteAvatar(fallback) && target.isConnected){
           avatarFallbacks.delete(key);void addAvatar(target,peerId,fallback);
         }
       };
+      img.onload=apply;
+      img.onerror=fail;
       img.src=src;
+      // decode() also kicks off loading for browsers that defer detached images.
+      if(typeof img.decode==='function')void img.decode().then(apply).catch(()=>{});
     }catch(_){/* A missing/expired avatar is cosmetic; the user actions stay visible. */}
   }
   function avatarEl(name,icon=''){
