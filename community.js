@@ -8,6 +8,8 @@
   const privacyControls=$('community-privacy-controls'),sharePresence=$('community-share-presence');
   const chat=$('community-chat'),chatTitle=$('community-chat-with'),messages=$('community-messages');
   let client=null,user=null, snapshot=null,peer=null,peerName='',lastTerm='',lastIdentity=null;
+  // Multiple auth/focus/refresh events can overlap. Only the latest response may render.
+  let friendsRefreshVersion=0;
   const navForm=$('nav-player-search-form'),navSearch=$('nav-player-search'),navFriendsToggle=$('nav-friends-toggle');
   const navFriendsPanel=$('nav-friends-panel'),navFriendsEntries=$('nav-friends-entries'),navFriendCount=$('nav-friend-count');
   const signedAvatars=new Map();
@@ -290,19 +292,57 @@
     }
     note(players.length?'Choose Add Friend to send a request. Private contact details are never shown.':'No player found. Check the spelling or try another nickname.');
   }
+  // Defense-in-depth: one friend card per account even if a backend joins a
+  // profile twice. Accepted friendship outranks a stale pending row.
+  function uniqueFriendLinks(rows){
+    const byPeer=new Map();
+    const priority={accepted:3,pending:2,rejected:1};
+    for(const link of rows){
+      if(!link||typeof link.peer_id!=='string'||!link.peer_id||!['accepted','pending'].includes(link.status))continue;
+      const previous=byPeer.get(link.peer_id);
+      if(!previous){byPeer.set(link.peer_id,{...link});continue;}
+      const newer=(priority[link.status]||0)>(priority[previous.status]||0);
+      const chosen=newer?link:previous;
+      const other=newer?previous:link;
+      byPeer.set(link.peer_id,{
+        ...chosen,
+        nickname:chosen.nickname||other.nickname,
+        avatar_path:chosen.avatar_path||other.avatar_path||null,
+        avatar_url:chosen.avatar_url||other.avatar_url||null,
+        online:Boolean(chosen.online||other.online)
+      });
+    }
+    return [...byPeer.values()];
+  }
   async function refreshState(){
-    if(!await getSession()){friendsEl.replaceChildren(el('p','Sign in to manage friends.'));renderMiniFriends([]);return;}
-    const response=await rpc('vxsk_social_my_state');if(!response.ok){friendsEl.replaceChildren(el('p','Community setup required.'));return;}
-    snapshot=response.data||{};
+    const version=++friendsRefreshVersion;
+    const signedIn=await getSession();
+    if(version!==friendsRefreshVersion)return;
+    if(!signedIn){
+      snapshot=null;
+      friendsEl.replaceChildren(el('p','Sign in to manage friends.'));
+      renderMiniFriends([]);
+      return;
+    }
+    const requestedUser=user.id;
+    const response=await rpc('vxsk_social_my_state');
+    // Rapid refresh, sign-in events and focus events must never append old rows.
+    if(version!==friendsRefreshVersion||user?.id!==requestedUser)return;
+    if(!response.ok){friendsEl.replaceChildren(el('p','Community setup required.'));renderMiniFriends([]);return;}
+    const next=response.data||{};
+    const blocks=Array.isArray(next.blocked)
+      ?[...new Map(next.blocked.filter(x=>x&&x.peer_id).map(x=>[x.peer_id,x])).values()]:[];
+    const blockedIds=new Set(blocks.map(x=>x.peer_id));
+    const links=uniqueFriendLinks(Array.isArray(next.links)?next.links:[])
+      .filter(x=>!blockedIds.has(x.peer_id));
+    snapshot={...next,links,blocked:blocks};
     if(privacyControls)privacyControls.hidden=false;
     if(sharePresence)sharePresence.checked=Boolean(snapshot.profile?.share_presence);
+    // Render atomically: NO await between clearing and appending. This was the
+    // source of duplicate YOUR FRIENDS sections during overlapping refreshes.
     friendsEl.replaceChildren();
-    const links=Array.isArray(snapshot.links)?snapshot.links:[];
-    const blocks=Array.isArray(snapshot.blocked)?snapshot.blocked:[];
     renderMiniFriends(links);
-    void hydrateFriendsAvatars(links);
-    await refreshAlerts({silent:true});
-    if(!links.some(x=>x.status==='accepted'||x.status==='pending')&&!blocks.length) friendsEl.append(el('p','No friends or invitations yet.')); 
+    if(!links.length&&!blocks.length)friendsEl.append(el('p','No friends or invitations yet.'));
     const sortedLinks=[
       ...links.filter(x=>x.status==='pending'&&!x.outgoing),
       ...links.filter(x=>x.status==='accepted').sort((a,b)=>Number(b.online===true)-Number(a.online===true)||String(a.nickname).localeCompare(String(b.nickname))),
@@ -333,6 +373,8 @@
         const r=await rpc('vxsk_social_block',{p_peer:item.peer_id,p_block:false});if(r.ok)await refreshState();
       })]));
     }
+    void hydrateFriendsAvatars(links);
+    void refreshAlerts({silent:true});
   }
   async function challengeFriend(id,name){
     const game=prompt('Challenge '+name+' in which game? Rocket League, VALORANT, or League of Legends','Rocket League');

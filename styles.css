@@ -1149,7 +1149,12 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 /* V12.8.33 final art: crisp original fully visible in 16:9 viewport.
    Blur only a background clone for the small horizontal margins. */
 .hero-art-card{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
-.hero-art-card::before{content:"";position:absolute;inset:0;background:url("assets/vxsk-announcement-wide.webp") center/cover no-repeat;filter:blur(17px) brightness(.62);transform:scale(1.07);pointer-events:none}
+.hero-art-card::before{content:"";position:absolute;inset:0;background:url("assets/vxsk-announcement-wide.webp?v=12.8.34") center/cover no-repeat;filter:blur(17px) brightness(.62);transform:scale(1.07);pointer-events:none}
 .hero-art-card>img{width:100%;height:100%;aspect-ratio:16/9;object-fit:contain;object-position:center;position:relative;z-index:1;filter:none}
 .hero-art-card::after{z-index:2}
 .hero-art-corner{z-index:3}
+
+/* VXSK V12.8.34 · participant-to-participant ICE latency, not HTTP page load. */
+.vxsk-ping-badge{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 10px;font:800 11px/1.2 'Space Grotesk',system-ui,sans-serif;letter-spacing:.04em;border:1px solid rgba(125,225,247,.55);border-radius:10px;color:#aaf5ff;background:rgba(16,62,91,.45);font-variant-numeric:tabular-nums;white-space:nowrap}
+.vxsk-ping-badge[data-path="relay"]{color:#bdf9d6;border-color:rgba(86,238,154,.6)}
+@media(max-width:530px){.vxsk-ping-badge{font-size:10px;padding:4px 8px}}

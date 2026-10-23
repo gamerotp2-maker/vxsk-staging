@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12.8.33">
+  <link rel="stylesheet" href="styles.css?v=12.8.34">
   <script>
   // Apply saved visual mode before the first paint, preventing a video flash.
   try { if (localStorage.getItem('vxsk-low-lag') === '1') document.documentElement.classList.add('vxsk-low-lag'); } catch (_) {}
@@ -29,15 +29,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1" defer></script>
   <script src="supabase-config.js?v=12.8.7" defer></script>
   <script src="staging-guard.js?v=12.8.7" defer></script><script src="auth-client.js?v=12.8.29" defer></script><script src="updates.js" defer></script>
-  <script defer src="vxsk-cover-utils.js?v=12.8.33"></script><script src="match-center-live.js?v=12.8.33" defer></script>
-  <script src="vxsk-experience.js?v=12.8.15-friends-nav" defer></script>
+  <script defer src="vxsk-cover-utils.js?v=12.8.34"></script><script src="match-center-live.js?v=12.8.34" defer></script>
+  <script src="vxsk-experience.js?v=12.8.34-music" defer></script>
   <script src="season-showcase.js?v=12.8.9" defer></script>
   <script src="chapter-transitions.js?v=12.8.7" defer></script>
-  <script src="community.js?v=12.8.33" defer></script>
-  <script src="group-chat.js?v=12.8.28" defer></script><script src="group-calls.js?v=12.8.28" defer></script>
+  <script src="community.js?v=12.8.34-friends-1" defer></script>
+  <script src="group-chat.js?v=12.8.28" defer></script><script src="vxsk-call-network.js?v=12.8.34" defer></script><script src="group-calls.js?v=12.8.34" defer></script>
   <script src="ui-polish.js?v=12.8.8" defer></script>
-  <script src="friend-calls.js?v=12.8.28" defer></script>
-<link rel="stylesheet" href="vxsk-cover.css?v=12.8.33"/></head>
+  <script src="friend-calls.js?v=12.8.34" defer></script>
+<link rel="stylesheet" href="vxsk-cover.css?v=12.8.34"/></head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <div class="ambient-backdrop" aria-hidden="true"></div>
@@ -47,7 +47,7 @@
   <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
   <div class="announcement-bar">
     <span class="live-ping"></span>
-    <span>VXSK 2026 / 2027</span><span class="staging-build-label">V12.8.33</span>
+    <span>VXSK 2026 / 2027</span><span class="staging-build-label">V12.8.34</span>
     <span class="bar-divider">/</span>
     <span>ROCKET LEAGUE SEASON ONE</span>
     <span class="bar-extra">·</span>
@@ -95,7 +95,7 @@
       <div class="hero-art-wrap" aria-label="VXSK season artwork">
         <div class="hero-art-halo" aria-hidden="true"></div>
         <div class="hero-art-card">
-          <img src="assets/vxsk-announcement-wide.webp" alt="Official VXSK season announcement artwork featuring the full VXSK programme" width="1600" height="1000" fetchpriority="high">
+          <img src="assets/vxsk-announcement-wide.webp?v=12.8.34" alt="Official VXSK season announcement artwork featuring the full VXSK programme" width="1600" height="900" fetchpriority="high">
           <span class="hero-art-corner corner-tl"></span><span class="hero-art-corner corner-br"></span>
         </div>
         <div class="floating-tag tag-one"><span class="tag-pulse"></span> 2026 — 2027 SEASON</div>
@@ -291,7 +291,7 @@
       </aside>
       <aside id="vxsk-group-call-dock" class="vxsk-call-dock" hidden><span class="vxsk-dock-indicator" aria-hidden="true"></span><div class="vxsk-dock-copy"><strong id="vxsk-group-call-dock-title">GROUP CALL</strong><small>Call continues while minimized</small></div><button type="button" id="vxsk-group-call-restore">OPEN ↗</button><button type="button" id="vxsk-group-call-dock-end" class="vxsk-dock-end">LEAVE</button></aside>
       <dialog id="vxsk-group-call-panel" class="vxsk-call-panel vxsk-group-call-panel" hidden aria-label="Group call">
-        <div class="vxsk-call-header"><div><strong id="vxsk-group-call-title">PRIVATE GROUP CALL</strong><p id="vxsk-group-call-status" role="status">Connecting…</p></div><button type="button" id="vxsk-group-call-minimize" aria-label="Minimize group call">−</button></div>
+        <div class="vxsk-call-header"><div><strong id="vxsk-group-call-title">PRIVATE GROUP CALL</strong><p id="vxsk-group-call-status" role="status">Connecting…</p><span class="vxsk-ping-badge" id="vxsk-group-call-latency" aria-label="Group call round trip latency">PING — ms</span></div><button type="button" id="vxsk-group-call-minimize" aria-label="Minimize group call">−</button></div>
         <div class="vxsk-group-share-header"><strong>SCREEN SHARES · <span id="vxsk-group-share-count">0 / 4 SHARES</span></strong><button type="button" id="vxsk-group-call-grid-fullscreen">FULLSCREEN GRID ⛶</button></div>
         <div id="vxsk-group-shares" class="vxsk-group-share-grid" hidden aria-label="Up to four simultaneous screens, with separate sound controls for each"></div>
         <h4 class="vxsk-group-section-label">PARTICIPANTS · MUTE EACH PLAYER INDIVIDUALLY</h4>
@@ -302,7 +302,7 @@
       <dialog id="vxsk-call-panel" class="vxsk-call-panel" hidden aria-label="Friend audio or video call" aria-live="polite">
         <div class="vxsk-call-stage" id="vxsk-call-stage">
         <span id="vxsk-call-local-mic-state" class="vxsk-call-local-mic-status" hidden>🔇 YOUR MICROPHONE IS MUTED</span>
-        <div class="vxsk-call-header"><div><strong id="vxsk-call-title">FRIEND CALL</strong><p id="vxsk-call-status" role="status">Waiting…</p></div><button type="button" id="vxsk-call-close" aria-label="Minimize call, do not hang up" title="Minimize without ending">×</button></div>
+        <div class="vxsk-call-header"><div><strong id="vxsk-call-title">FRIEND CALL</strong><p id="vxsk-call-status" role="status">Waiting…</p><span class="vxsk-ping-badge" id="vxsk-call-latency" aria-label="Friend call round trip latency">PING — ms</span></div><button type="button" id="vxsk-call-close" aria-label="Minimize call, do not hang up" title="Minimize without ending">×</button></div>
         <div class="vxsk-call-voices" id="vxsk-call-voices" hidden aria-label="Audio call participants">
           <div class="vxsk-voice-user"><span class="vxsk-voice-avatar" id="vxsk-call-my-avatar">YOU</span><strong id="vxsk-call-my-name">YOU</strong><small>YOUR MICROPHONE</small></div>
           <span class="vxsk-voice-divider" aria-hidden="true">⇄</span>

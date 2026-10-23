@@ -8,7 +8,9 @@
   const members=$('vxsk-group-call-members'),shares=$('vxsk-group-shares');
   const status=$('vxsk-group-call-status'),micBtn=$('vxsk-group-call-mute'),camBtn=$('vxsk-group-call-camera');
   const shareBtn=$('vxsk-group-call-share'),playBtn=$('vxsk-group-call-play-audio'),dock=$('vxsk-group-call-dock');
-  const servers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
+  let servers=window.VXSKCallNetwork?.STUN||[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
+  let hasTurn=false,latencyTimer=null,latencyBusy=false;
+  const latencyBadge=$('vxsk-group-call-latency');
   const api=()=>window.VXSKAuth?.client;
   const node=(tag,label,cls)=>{const n=document.createElement(tag);if(label!=null)n.textContent=label;if(cls)n.className=cls;return n;};
   let room=null,session=null,user=null,local=null,shareStream=null,sharingVideo=null,sharingAudio=null;
@@ -53,6 +55,37 @@
   function refreshAll(){for(const p of peers.values()){void announce(p);refresh(p);}}
 
   const say=s=>{status.textContent=s;};
+  async function refreshLatency(){
+    if(latencyBusy||!latencyBadge)return;
+    const current=[...peers.values()].filter(p=>p.pc.connectionState==='connected');
+    if(!room||!current.length){latencyBadge.textContent='PING — ms';latencyBadge.title='Waiting for participant media';return;}
+    latencyBusy=true;
+    try{
+      const values=await Promise.all(current.map(p=>window.VXSKCallNetwork?.connectionStats(p.pc)));
+      if(!room)return;
+      const measurements=values.map(v=>v?.ms).filter(v=>Number.isInteger(v));
+      const average=measurements.length?Math.round(measurements.reduce((a,b)=>a+b,0)/measurements.length):null;
+      latencyBadge.textContent=average===null?'PING — ms':'PING '+average+' ms';
+      latencyBadge.title='Average WebRTC round-trip latency to connected participants ('+measurements.length+' measured)';
+      latencyBadge.dataset.path=values.some(v=>v?.path==='relay')?'relay':'direct';
+    }catch(_){latencyBadge.textContent='PING — ms';}finally{latencyBusy=false;}
+  }
+  function stopLatency(){if(latencyTimer){clearInterval(latencyTimer);latencyTimer=null;}if(latencyBadge){latencyBadge.textContent='PING — ms';latencyBadge.dataset.path='unknown';}}
+  async function restartPeer(p){
+    if(!room||!p||peers.get(p.id)!==p||p.pc.signalingState==='closed'||p.restarting)return;
+    p.restarting=true;
+    try{
+      const result=await window.VXSKCallNetwork?.ice(api(),{kind:'group',id:room});
+      if(!room||peers.get(p.id)!==p)return;
+      if(result?.relay){servers=result.servers;hasTurn=true;for(const peer of peers.values())peer.pc.setConfiguration({iceServers:servers});}
+      if(user.id<p.id){
+        if(p.pc.signalingState==='stable')await offer(p,true,true);
+        else void send(p,'ice',{vxskIceRestart:true});
+      }else void send(p,'ice',{vxskIceRestart:true});
+    }catch(_){/* Retain the media connection for transient ICE failures. */}
+    finally{p.restarting=false;}
+  }
+
   async function rpc(method,args){const c=api();if(!c)throw Error('Sign in before joining a call.');const {data,error}=await c.rpc(method,args);if(error){console.warn('VXSK group-call RPC',method,error.code||'error');throw Error(error.code==='PGRST202'?'Run V12.8.22 group-call migration in STAGING.':'Group call connection or permission error.');}return data;}
   function open(){dock.hidden=true;panel.hidden=false;try{if(!panel.open)panel.showModal();}catch(_){panel.hidden=false;}}
   function minimized(){if(!room)return;void closeFullscreen();if(panel.open)panel.close();panel.hidden=true;dock.hidden=false;}
@@ -178,6 +211,7 @@
     updateCamera();stateChanged();
   }
   function killPeer(id){const p=peers.get(id);if(!p)return;peers.delete(id);
+    if(p.recoveryTimer)clearTimeout(p.recoveryTimer);
     if(p.refreshTimer)clearTimeout(p.refreshTimer);
     try{p.pc.close();}catch(_){}p.micSound.srcObject=null;p.shareSound.srcObject=null;setRemoteShare(p,false);p.ui.card.remove();
   }
@@ -221,7 +255,7 @@
     ui.card.append(micSound,shareSound);
     p={id,name,session:sid,pc,ui,ice:[],cameraSender,shareSender,shareAudioSender,micSound,shareSound,
       screenTrack:null,screenActive:false,shareUi:null,muteMic:false,muteShare:false,remoteMicMuted:false,cameraOff:true,offered:false,
-      sendQueue:Promise.resolve(),lastStateAt:0,lastOfferAt:0,offerAttempts:0,refreshTimer:null};peers.set(id,p);
+      sendQueue:Promise.resolve(),lastStateAt:0,lastOfferAt:0,offerAttempts:0,refreshTimer:null,recoveryTimer:null,recoveryAttempts:0,restarting:false};peers.set(id,p);
     // Attach existing shares BEFORE creating a new offer; late joiners receive
     // active screen tracks in the initial negotiation, not an empty sender.
     try{
@@ -272,6 +306,10 @@
     };
     pc.onicecandidate=event=>{if(event.candidate)void send(p,'ice',event.candidate.toJSON());};
     pc.onconnectionstatechange=()=>{if(peers.get(id)!==p)return;
+      if(pc.connectionState==='connected'){p.recoveryAttempts=0;if(p.recoveryTimer)clearTimeout(p.recoveryTimer);p.recoveryTimer=null;}
+      else if(['failed','disconnected'].includes(pc.connectionState)&&!p.recoveryTimer&&p.recoveryAttempts<3){
+        p.recoveryTimer=setTimeout(()=>{p.recoveryTimer=null;if(peers.get(id)!==p||!['failed','disconnected'].includes(pc.connectionState))return;p.recoveryAttempts++;void restartPeer(p);},pc.connectionState==='failed'?1500:8000);
+      }
       const s=pc.connectionState;ui.state.textContent=s==='connected'?'CONNECTED':s==='failed'?'CONNECTION FAILED':s.toUpperCase();
       if(s==='connected')void announce(p);
       if(s==='failed')say('A peer connection failed. TURN relay may be needed on restrictive networks.');
@@ -300,11 +338,11 @@
       p.shareAudioSender.replaceTrack(sharingAudio||null)
     ]);
   }
-  async function offer(p,refresh=false){
+  async function offer(p,refresh=false,iceRestart=false){
     if(!room||peers.get(p.id)!==p||user.id>=p.id||(!refresh&&p.offered)||p.pc.signalingState!=='stable')return;
     p.offered=true;
     try{
-      await p.pc.setLocalDescription(await p.pc.createOffer());
+      await p.pc.setLocalDescription(await p.pc.createOffer(iceRestart?{iceRestart:true}:undefined));
       p.lastOfferAt=Date.now();p.offerAttempts=0;
       if(!await send(p,'offer',p.pc.localDescription.toJSON()))throw Error('offer rejected');
       await announce(p);
@@ -314,7 +352,8 @@
     const p=peers.get(item.sender);if(!p||p.session!==item.sender_session){cursor=id;continue;}
     try{
       if(item.kind==='ice'){
-        if(item.body?.vxskRefresh===true){if(user.id<p.id)refresh(p);}
+        if(item.body?.vxskIceRestart===true){if(user.id<p.id)void restartPeer(p);}
+        else if(item.body?.vxskRefresh===true){if(user.id<p.id)refresh(p);}
         else if(item.body?.vxskMediaState===true){
           p.cameraOff=item.body.camera!==true;
           p.remoteMicMuted=item.body.micMuted===true;
@@ -381,6 +420,10 @@
       // microphone call or requiring anyone else's camera to be available.
       const sid=await rpc('vxsk_group_call_join',{p_group:group});if(!sid)throw Error('Group call full (maximum four), already open in another tab, or unavailable.');
       session=sid;room=group;epoch++;cursor=0;peers.clear();
+      const iceConfig=await window.VXSKCallNetwork?.ice(c,{kind:'group',id:group});
+      if(iceConfig?.relay){servers=iceConfig.servers;hasTurn=true;}
+      else {servers=window.VXSKCallNetwork?.STUN||servers;hasTurn=false;}
+
       $('vxsk-group-call-title').textContent=(name||'SQUAD')+' · '+medium.toUpperCase()+' GROUP CALL';
       members.replaceChildren();shares.replaceChildren();syncShareGrid();const own=groupTile('self',$('nav-nickname')?.textContent?.trim()||'PLAYER',true);own.card.classList.add('is-local');
       own.label.textContent='YOU';own.state.textContent='LOCAL';
@@ -395,6 +438,7 @@
       camBtn.hidden=false;updateMicrophone();updateCamera();buttonLabel(shareBtn,'screen','SHARE SCREEN');buttonLabel(playBtn,'sound','PLAY GROUP SOUND');buttonLabel($('vxsk-group-call-end'),'leave','LEAVE GROUP CALL');playBtn.hidden=true;
       dock.querySelector('#vxsk-group-call-dock-title').textContent=name||'GROUP CALL';open();
       await poll();timer=setInterval(()=>void poll(),2200);
+      if(!latencyTimer){void refreshLatency();latencyTimer=setInterval(()=>{if(!document.hidden)void refreshLatency();},4000);}
       say('Connected to your squad. Each member can share one screen.');
       if(medium==='video')void ensureCamera();
     }catch(e){const f=$('vxsk-group-feedback');if(f)f.textContent=e.message||'Unable to join call.';
@@ -430,7 +474,7 @@
       if(outcomes.some(x=>!x))say('Share started, but one peer may be reconnecting.');
     }catch(e){if(stream&&shareStream!==stream)safeMedia(stream);if(e.name!=='NotAllowedError')say('Could not share this screen; try a browser tab.');}
   }
-  async function leave(){if(!room&&!local)return;clearInterval(timer);timer=null;
+  async function leave(){if(!room&&!local)return;clearInterval(timer);timer=null;stopLatency();
     const id=room,sid=session;room=null;session=null;epoch++;
     await stopShare();closeFullscreen();for(const key of [...peers.keys()])killPeer(key);
     safeMedia(local);local=null;user=null;cursor=0;members.replaceChildren();shares.replaceChildren();syncShareGrid();

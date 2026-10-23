@@ -16,6 +16,8 @@
   const remoteShareAudio=$('vxsk-share-audio'), fullStage=$('vxsk-call-stage'), fullscreenButton=$('vxsk-call-fullscreen');
   const selfPreview=$('vxsk-self-preview'),privateShares=$('vxsk-private-shares'),cameraPlaceholder=$('vxsk-call-camera-placeholder'),videoPeerAvatar=$('vxsk-video-peer-avatar'),videoPeerName=$('vxsk-video-peer-name');
   const networkButton=$('vxsk-call-network'), networkInfo=$('vxsk-call-network-info');
+  const latencyBadge=$('vxsk-call-latency');
+  let latencyTimer=null,latencyBusy=false;
   const screenButton=$('vxsk-call-share'),shareLabel=$('vxsk-call-share-label'),shareExit=$('vxsk-share-exit');
   let call=null, peerConnection=null, localMedia=null, remoteMedia=null, lastSignal=0;
   let collectingMedia=false, updating=false, checkingInbox=false;
@@ -26,16 +28,15 @@
   const myAvatar=$('vxsk-call-my-avatar'),peerAvatar=$('vxsk-call-peer-avatar');
   const myName=$('vxsk-call-my-name'),peerName=$('vxsk-call-peer-name'),voices=$('vxsk-call-voices');
   let minimized=false,ringEnabled=false,playingTone='',theater=false;
-  // Original VXSK tones are ordinary HTML media: generally less vulnerable to
+  // VXSK custom incoming ringtone and standard outgoing tone use HTML media: generally less vulnerable to
   // animation timer throttling than repeated synthesized oscillator callbacks.
   // Background sound is still controlled by the browser and operating system.
-  const tones={incoming:new Audio('assets/vxsk-incoming-ring.wav'),outgoing:new Audio('assets/vxsk-outgoing-ring.wav')};
+  const tones={incoming:new Audio('assets/vxsk-incoming-ring-custom.mp3'),outgoing:new Audio('assets/vxsk-outgoing-ring.wav')};
   for(const el of Object.values(tones)){el.loop=true;el.preload='auto';}
   tones.incoming.volume=.9;tones.outgoing.volume=.65;
-  // Free-only VXSK staging: STUN needs no account or billing. To enable TURN
-  // later, change this flag only after configuring secure server-side credentials.
-  const freeStunOnly=true;
-  const freeStunServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
+  // Direct STUN first; request scoped short-lived TURN credentials via Edge Function.
+  // Without a configured relay provider, browsers cannot reliably cross strict NATs.
+  const freeStunServers=window.VXSKCallNetwork?.STUN||[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
   let iceServers=freeStunServers,hasTurn=false,iceRetry=0,iceRetryTimer=null,iceRestarting=false;
   let videoSender=null,screenVideoSender=null,screenAudioSender=null,shareStream=null,shareTrack=null,shareAudioTrack=null,sharing=false,sharingAudio=false,friendScreen=false,friendSharingAudio=false;
   let peerCameraTrack=null,peerScreenTrack=null,peerCameraOff=false,friendMuted=false,shareMuted=false,shareTiles={};
@@ -133,27 +134,31 @@
     });
   }
   async function getIceServers(){
-    const fallback=freeStunServers;
-    // Avoid an unnecessary Edge Function request (and up to 6s delay)
-    // when no paid TURN provider is configured for this free-only build.
-    if(freeStunOnly)return {servers:fallback,relay:false};
-    // TURN keys stay server-side in the Supabase Edge Function. The browser only
-    // gets temporary scoped ICE credentials if a real active call is authorized.
     const instance=api();
-    if(!instance?.functions?.invoke||!call?.id)return {servers:fallback,relay:false};
-    try{
-      const timeout=new Promise((_,reject)=>setTimeout(()=>reject(Error('timeout')),6000));
-      const reply=await Promise.race([instance.functions.invoke('vxsk-turn-credentials',{body:{call_id:call.id}}),timeout]);
-      if(reply?.error||!Array.isArray(reply?.data?.iceServers))return {servers:fallback,relay:false};
-      const servers=reply.data.iceServers.filter(entry=>{
-        if(!entry||!(typeof entry.urls==='string'||Array.isArray(entry.urls)))return false;
-        const urls=Array.isArray(entry.urls)?entry.urls:[entry.urls];
-        return urls.length>0&&urls.length<=8&&urls.every(u=>typeof u==='string'&&/^(stun|turn|turns):/i.test(u)&&u.length<256);
-      }).slice(0,6);
-      const relay=servers.some(entry=>String(entry.urls).includes('turn:')||String(entry.urls).includes('turns:'));
-      return {servers:servers.length?servers:fallback,relay};
-    }catch(_){return {servers:fallback,relay:false};}
+    return await window.VXSKCallNetwork?.ice(instance,{kind:'friend',id:call?.id})
+      || {servers:freeStunServers,relay:false};
   }
+  async function updateLatency(){
+    if(latencyBusy||!latencyBadge)return;
+    if(!call||call.state!=='accepted'||!peerConnection||peerConnection.connectionState!=='connected'){
+      latencyBadge.textContent='PING — ms';latencyBadge.title='Awaiting a working media connection';return;
+    }
+    latencyBusy=true;
+    const pc=peerConnection;
+    try{
+      const value=await window.VXSKCallNetwork?.connectionStats(pc);
+      if(pc!==peerConnection||!call)return;
+      latencyBadge.textContent=value?.ms!=null?'PING '+value.ms+' ms':'PING — ms';
+      latencyBadge.title=(value?.path==='relay'?'Via TURN relay':value?.path==='direct'?'Direct peer connection':'Connection type unknown')+' · WebRTC round-trip latency';
+      latencyBadge.dataset.path=value?.path||'unknown';
+    }catch(_){latencyBadge.textContent='PING — ms';}
+    finally{latencyBusy=false;}
+  }
+  function startLatency(){
+    if(latencyTimer)return;
+    void updateLatency();latencyTimer=setInterval(()=>{if(!document.hidden)void updateLatency();},3500);
+  }
+  function stopLatency(){if(latencyTimer){clearInterval(latencyTimer);latencyTimer=null;}if(latencyBadge){latencyBadge.textContent='PING — ms';latencyBadge.dataset.path='unknown';}}
   async function tryIceRestart(){
     const pc=peerConnection,id=call?.id;
     if(!pc||!call||call.state!=='accepted'||pc.signalingState==='closed'||call.role!=='caller'||iceRestarting)return;
@@ -161,7 +166,7 @@
     iceRestarting=true;iceRetry++;
     setStatus('Reconnecting call… attempt '+iceRetry+' of 2.');
     try{
-      if(!hasTurn){const config=await getIceServers();if(call?.id!==id||peerConnection!==pc)return;
+      {const config=await getIceServers();if(call?.id!==id||peerConnection!==pc)return;
         if(config.relay){iceServers=config.servers;hasTurn=true;pc.setConfiguration({iceServers});}}
       if(pc.signalingState!=='stable')return;
       pendingIce=[];videoDescriptionQueued=false;
@@ -408,6 +413,7 @@
     updateRingtone();mini();
   }
   function stopMedia(){
+    stopLatency();
     clearMeters();
     stopTones();
     if(cameraPlaceholderTimer)clearTimeout(cameraPlaceholderTimer);cameraPlaceholderTimer=null;
@@ -632,6 +638,7 @@
       queueSignal('ice',candidate);
     };
     pc.onconnectionstatechange=()=>{
+      if(pc.connectionState==='connected')startLatency();else void updateLatency();
       if(!call||peerConnection!==pc)return;
       if(pc.connectionState==='connected'){
         scheduleIceRecovery('connected');broadcastMediaState();
@@ -747,7 +754,7 @@
       'Friend camera receive: '+(peerCameraTrack?.readyState||'NOT READY')+', muted: '+(peerCameraTrack?.muted!==false),
       'Friend screen receive: '+(peerScreenTrack?.readyState||'NOT READY')+', muted: '+(peerScreenTrack?.muted!==false)
     ];
-    if(!hasTurn)lines.push('Free STUN-only mode: some networks cannot make direct calls without a relay.');
+    if(!hasTurn)lines.push('TURN relay unavailable. Enable secure TURN in Supabase for worldwide connectivity.');
     networkInfo.textContent=lines.join('\n');networkInfo.hidden=false;
   }
   async function pollCall(){

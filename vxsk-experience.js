@@ -47,15 +47,14 @@
   document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});
   window.addEventListener('resize',()=>{if(!desktop())hide();});
 
-  // Original VXSK ambient loop ships with V12.1. Playback is opt-in.
-  // To use a separately licensed track later, replace this path only after obtaining permission.
+  // V12.8.34 background music. Playback remains opt-in and subject to browser audio permissions.
   const music=document.querySelector('#music-toggle');
-  const audio=new Audio('assets/vxsk-ambient-original.mp3');
+  const audio=new Audio('assets/vxsk-background-music-v12834.mp3');
   audio.loop=true;audio.volume=0.24;audio.preload='none';
   const update=()=>{
     music?.setAttribute('aria-pressed',String(!audio.paused));
     music?.setAttribute('aria-label',audio.paused?'Play VXSK background music':'Mute VXSK background music');
-    music?.setAttribute('title',audio.paused?'Play original VXSK ambient music':'Mute background music');
+    music?.setAttribute('title',audio.paused?'Play VXSK background music':'Pause VXSK background music');
     const label=music?.querySelector('span');if(label)label.textContent=audio.paused?'OFF':'ON';
   };
   music?.addEventListener('click',async()=>{
