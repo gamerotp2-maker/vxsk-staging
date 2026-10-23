@@ -1161,9 +1161,37 @@ body.vxsk-low-lag .vxsk-hero-video{background:#090b1c url("assets/vxsk-gameplay-
 
 @media(max-width:780px){.vxsk-showcase-video{max-height:none}}
 
-/* V12.8.34 HQ originals — keep gameplay previews sharp and unmodified. */
-.media-section .video-thumbnail{aspect-ratio:16/9;background:#050814;overflow:hidden;}
-.media-section .video-thumbnail::after{display:none!important;content:none!important;}
-.media-section .video-thumbnail video{width:100%;height:100%;object-fit:contain;display:block;filter:none!important;transform:none!important;image-rendering:auto;}
-.media-section .video-card:hover video{filter:none!important;transform:none!important;}
-.media-section .video-index{pointer-events:none;}
+/* VXSK CINEMA — each clip is its OWN wide background scene, never blurred or scaled. */
+.vxsk-cinema-section{position:relative;padding:clamp(62px,6vw,94px) 0 78px;isolation:isolate}
+.vxsk-cinema-intro{margin-bottom:31px}
+.vxsk-cinema-stack{display:flex;flex-direction:column;gap:clamp(28px,5vw,75px)}
+.vxsk-cinema-scene{position:relative;width:min(100% - 64px,1620px);margin-inline:auto;aspect-ratio:16/9;min-height:260px;overflow:hidden;isolation:isolate;border:1px solid rgba(151,112,248,.62);border-radius:18px;background:#080a14;box-shadow:0 22px 70px rgba(2,4,26,.65)}
+.vxsk-cinema-scene:nth-child(2){border-color:rgba(231,157,242,.58)}
+.vxsk-cinema-scene:nth-child(3){border-color:rgba(243,82,119,.57)}
+.vxsk-cinema-video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;object-position:center;background:#080a14;filter:none!important;transform:none!important;transition:none!important;opacity:1;image-rendering:auto;z-index:0}
+.vxsk-cinema-scene::after{position:absolute;content:"";z-index:1;inset:auto 0 0;height:32%;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,rgba(4,6,18,.66) 100%)}
+.vxsk-cinema-info{position:absolute;left:clamp(17px,3vw,50px);bottom:clamp(66px,7vw,108px);z-index:2;max-width:70%;pointer-events:none;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+.vxsk-cinema-label{font:800 11px var(--body);letter-spacing:.17em;color:#e1d8ff}
+.vxsk-cinema-info h3{font:900 clamp(31px,5vw,83px)/.95 var(--display);letter-spacing:.03em;margin:9px 0 7px}
+.vxsk-cinema-info h3 em{font-style:normal;color:#c28dff}
+.vxsk-cinema-scene:nth-child(3) .vxsk-cinema-info h3 em{color:#ff6f90}
+.vxsk-cinema-info p{font-size:clamp(10px,1vw,15px);color:#ebeeff;margin:5px 0}
+.vxsk-cinema-controls{position:absolute;z-index:3;left:clamp(15px,3vw,48px);bottom:clamp(15px,2vw,34px);right:clamp(15px,3vw,48px);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.vxsk-cinema-state{font:800 10px var(--body);letter-spacing:.08em;padding:9px 10px;color:#e5e0ff;background:rgba(10,12,34,.78);border:1px solid rgba(158,157,224,.3);border-radius:8px}
+.vxsk-cinema-button,.vxsk-cinema-open{background:rgba(12,15,44,.87);color:#fff;border:1px solid rgba(157,119,252,.8);border-radius:9px;padding:10px 15px;font:800 12px var(--display);letter-spacing:.08em;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.vxsk-cinema-button:hover,.vxsk-cinema-open:hover{background:rgba(69,44,136,.92)}
+.vxsk-cinema-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;color:#919ac6;font:800 10px var(--body);letter-spacing:.1em}
+@media(max-width:800px){.vxsk-cinema-scene{width:calc(100% - 26px);border-radius:12px;aspect-ratio:9/10;max-height:76svh}.vxsk-cinema-video{object-fit:cover}.vxsk-cinema-info{bottom:115px;max-width:88%}.vxsk-cinema-controls{gap:6px}.vxsk-cinema-button,.vxsk-cinema-open{padding:9px 11px;font-size:10px}.vxsk-cinema-state{font-size:9px}.vxsk-cinema-info h3{font-size:clamp(28px,7vw,52px)}}
+@media(max-width:530px){.vxsk-cinema-scene{aspect-ratio:3/4;min-height:330px}.vxsk-cinema-info{bottom:140px}.vxsk-cinema-info p{font-size:11px}.vxsk-cinema-state{width:100%;max-width:max-content}}
+@media(prefers-reduced-motion:reduce){.vxsk-cinema-video{transition:none!important}}
+
+/* Mobile clarity: show the ENTIRE 16:9 clip, not a cropped portrait cover. */
+@media(max-width:800px){
+ .vxsk-cinema-scene{width:calc(100% - 26px);display:flex;flex-direction:column;aspect-ratio:auto;min-height:0;max-height:none;overflow:hidden}
+ .vxsk-cinema-video{position:relative;inset:auto;width:100%;height:auto;aspect-ratio:16/9;object-fit:contain;display:block;flex:0 0 auto}
+ .vxsk-cinema-scene::after{display:none}
+ .vxsk-cinema-info{position:relative;left:auto;bottom:auto;max-width:none;padding:17px 16px 11px;text-shadow:none;pointer-events:auto;background:linear-gradient(115deg,#15122d,#090d1f)}
+ .vxsk-cinema-info h3{font-size:clamp(30px,8vw,47px)}
+ .vxsk-cinema-info p{font-size:12px}
+ .vxsk-cinema-controls{position:relative;left:auto;right:auto;bottom:auto;width:100%;display:flex;padding:0 16px 18px;background:#090d1f}
+}

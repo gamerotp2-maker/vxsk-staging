@@ -28,12 +28,13 @@
   const myAvatar=$('vxsk-call-my-avatar'),peerAvatar=$('vxsk-call-peer-avatar');
   const myName=$('vxsk-call-my-name'),peerName=$('vxsk-call-peer-name'),voices=$('vxsk-call-voices');
   let minimized=false,ringEnabled=false,playingTone='',theater=false;
-  // VXSK custom incoming ringtone and standard outgoing tone use HTML media: generally less vulnerable to
+  let toneRevision=0;
+  // VXSK custom incoming ringtone and user-provided outgoing tone use HTML media: generally less vulnerable to
   // animation timer throttling than repeated synthesized oscillator callbacks.
   // Background sound is still controlled by the browser and operating system.
-  const tones={incoming:new Audio('assets/vxsk-incoming-ring-custom.mp3'),outgoing:new Audio('assets/vxsk-outgoing-ring.wav')};
+  const tones={incoming:new Audio('assets/vxsk-incoming-ring-custom.mp3'),outgoing:new Audio('assets/vxsk-outgoing-ring-custom.mp3?v=12.8.34-outgoing-2')};
   for(const el of Object.values(tones)){el.loop=true;el.preload='auto';}
-  tones.incoming.volume=.9;tones.outgoing.volume=.65;
+  tones.incoming.volume=.9;tones.outgoing.volume=.72;
   // Direct STUN first; request scoped short-lived TURN credentials via Edge Function.
   // Without a configured relay provider, browsers cannot reliably cross strict NATs.
   const freeStunServers=window.VXSKCallNetwork?.STUN||[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun2.l.google.com:19302']}];
@@ -103,7 +104,7 @@
     if(!ringToggle)return;
     ringToggle.setAttribute('aria-pressed',String(ringEnabled));
     ringToggle.setAttribute('aria-label',ringEnabled?'Mute call ringtone':'Enable call ringtone');
-    ringToggle.title=ringEnabled?'Mute incoming ringtone':'Enable incoming ringtone';
+    ringToggle.title=ringEnabled?'Mute call alert sounds':'Enable call alert sounds';
     const label=ringToggle.querySelector('span');if(label)label.textContent=ringEnabled?'RING ON':'RING OFF';
   }
   async function unlockRingtone(){
@@ -118,7 +119,10 @@
     }catch(_){tones.incoming.muted=false;return false;}
   }
   function stopTones(){
-    for(const audio of Object.values(tones)){if(!audio.paused)audio.pause();audio.currentTime=0;}
+    toneRevision++;
+    for(const audio of Object.values(tones)){
+      try{audio.pause();audio.currentTime=0;}catch(_){}
+    }
     playingTone='';
   }
   function updateRingtone(){
@@ -127,9 +131,17 @@
     stopTones();
     if(!wanted)return;
     playingTone=wanted;
-    tones[wanted].play().catch(()=>{
-      if(!call||call.state!=='ringing')return;
-      const text='Call alert sound is blocked by your browser. Click RING ON and allow sound for VXSK.';
+    const activeRevision=toneRevision;
+    const requested=tones[wanted];
+    try{requested.currentTime=0;}catch(_){}
+    requested.play().then(()=>{
+      // A delayed browser playback promise must never revive a finished call.
+      if(activeRevision!==toneRevision||!call||call.state!=='ringing'||!ringEnabled||playingTone!==wanted){
+        requested.pause();try{requested.currentTime=0;}catch(_){}
+      }
+    }).catch(()=>{
+      if(activeRevision!==toneRevision||!call||call.state!=='ringing'||!ringEnabled)return;
+      const text='Call sound is blocked by your browser. Click RING ON and allow sound for VXSK.';
       if(status.textContent.indexOf(text)<0)setStatus(text);
     });
   }
