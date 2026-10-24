@@ -1,7 +1,7 @@
 
-/* VXSK AI V12.9 — Private Mock Pilot
-   Owner + 2FA only.
-   No real AI API, payments or database writes.
+/* VXSK AI V12.9 — Private Mock Pilot (frontend access correction)
+   Owner + Owner-approved staff testers; MFA AAL2 required.
+   Server RPC enforces pilot approval and quotas. No OpenAI billing.
 */
 'use strict';
 
@@ -9,6 +9,19 @@
   const START_DELAY = 8_000;
   let lastMessageAt = 0;
   let mounted = false;
+  let activeUserId = null;
+  let accessEpoch = 0;
+
+  function permittedStaffRole(role) {
+    return ['owner', 'reviewer', 'staff'].includes(role);
+  }
+
+  function unmountUI() {
+    document.getElementById('vxsk-ai-button')?.remove();
+    document.getElementById('vxsk-ai-panel')?.remove();
+    mounted = false;
+    lastMessageAt = 0;
+  }
 
   const style = document.createElement('style');
   style.textContent = `
@@ -148,40 +161,6 @@
   `;
   document.head.appendChild(style);
 
-  function mockReply(question) {
-    const text = question.toLowerCase();
-
-    if (text.includes('hello') ||
-        text.trim() === 'hi' ||
-        text.includes('salem')) {
-      return 'Hey! 👋 What's up?';
-    }
-
-    if (text.includes('rocket')) {
-      return 'VXSK features Rocket League events and showmatches.';
-    }
-
-    if (text.includes('valorant')) {
-      return 'VALORANT is one of the three VXSK games.';
-    }
-
-    if (text.includes('league') ||
-        text.includes('lol')) {
-      return 'League of Legends is part of the VXSK event.';
-    }
-
-    if (text.includes('tournament') ||
-        text.includes('match')) {
-      return 'You can check the Arena Hub for published events and matches. This demo cannot read live schedules yet.';
-    }
-
-    if (text.includes('friend')) {
-      return 'Open Friends & Requests to manage your VXSK connections.';
-    }
-
-    return 'This is the VXSK AI test assistant. Real AI responses and live event knowledge will be enabled in a later phase.';
-  }
-
   function createMessage(container, message, type) {
     const bubble = document.createElement('div');
     bubble.className = 'vxsk-ai-message ' + type;
@@ -229,7 +208,7 @@ if (mounted) {
       </form>
 
       <div id="vxsk-ai-status" role="status">
-        Owner preview · Mock AI · No real API calls
+        Private pilot · Supabase mock replies · No OpenAI billing
       </div>
     `;
 
@@ -264,112 +243,160 @@ if (mounted) {
 
     panel.querySelector('#vxsk-ai-form').addEventListener('submit', async (event) => {
       event.preventDefault();
+      const send = panel.querySelector('#vxsk-ai-send');
+      if (send.disabled) return;
+      send.disabled = true;
+      const requestEpoch = accessEpoch;
 
-      // Recheck identity before allowing even demo interaction.
-      const { data: userData, error: userError } = await api.auth.getUser();
-      if (userError || !userData?.user) {
-        panel.hidden = true;
-        button.hidden = true;
-        return;
-      }
+      try {
+        // Every request rechecks the signed-in account and MFA status.
+        const { data: userData, error: userError } = await api.auth.getUser();
+        if (requestEpoch !== accessEpoch) return;
+        if (userError || !userData?.user || userData.user.id !== activeUserId) {
+          unmountUI();
+          activeUserId = null;
+          return;
+        }
 
-      const { data: roleData, error: roleError } = await api
-        .from('staff_roles')
-        .select('role')
-        .eq('user_id', userData.user.id)
-        .maybeSingle();
+        const { data: roleData, error: roleError } = await api
+          .from('staff_roles')
+          .select('role')
+          .eq('user_id', userData.user.id)
+          .maybeSingle();
 
-      const { data: assurance, error: mfaError } =
-        await api.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { data: assurance, error: mfaError } =
+          await api.auth.mfa.getAuthenticatorAssuranceLevel();
 
-      if (roleError || mfaError ||
-          roleData?.role !== 'owner' ||
-          assurance?.currentLevel !== 'aal2') {
-        panel.hidden = true;
-        button.hidden = true;
-        return;
-      }
+        if (requestEpoch !== accessEpoch) return;
+        if (roleError || mfaError ||
+            !permittedStaffRole(roleData?.role) ||
+            assurance?.currentLevel !== 'aal2') {
+          unmountUI();
+          activeUserId = null;
+          return;
+        }
 
-      const now = Date.now();
+        const question = input.value.trim();
+        if (!question) return;
 
-      if (now - lastMessageAt < START_DELAY) {
-        status.textContent = 'Please wait 8 seconds between messages.';
-        return;
-      }
+        if (Date.now() - lastMessageAt < START_DELAY) {
+          status.textContent = 'Please wait 8 seconds between successful messages.';
+          return;
+        }
 
-      const question = input.value.trim();
-      if (!question) return;
+        createMessage(messages, question, 'user');
+        input.value = '';
+        status.textContent = 'Checking pilot access...';
 
-      lastMessageAt = now;
-      createMessage(messages, question, 'user');
-      input.value = '';
+        // Membership/pilot_allowed, quotas and MFA are enforced in Supabase,
+        // not by trusting frontend role checks.
+        const { data, error } = await api.rpc('vxsk_ai_mock_message', {
+          p_message: question
+        });
 
-      
-      const { data, error } = await api.rpc('vxsk_ai_mock_message', {
-        p_message: question
-      });
+        if (requestEpoch !== accessEpoch) return;
+        if (error) {
+          createMessage(messages, 'Mock AI request denied: ' + error.message, 'bot');
+          status.textContent = 'No message quota charged by this frontend';
+          return;
+        }
 
-      if (error) {
-        createMessage(messages, 'AI: ' + error.message, 'bot');
-        status.textContent = 'Request not completed';
-        return;
-      }
+        if (!data || typeof data.reply !== 'string') {
+          status.textContent = 'Unexpected mock response; check staging logs.';
+          return;
+        }
 
-      createMessage(messages, data.reply, 'bot');
-      status.textContent =
-        data.messages_remaining + '/' + data.daily_limit +
-        ' messages remaining · ' + data.plan.toUpperCase();
-
-    });
-
-    api.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        button.hidden = true;
-        panel.hidden = true;
+        lastMessageAt = Date.now(); // Do not apply local cooldown on failed calls.
+        createMessage(messages, data.reply, 'bot');
+        status.textContent =
+          data.messages_remaining + '/' + data.daily_limit +
+          ' messages remaining · ' + String(data.plan || 'free').toUpperCase();
+      } catch (error) {
+        if (requestEpoch === accessEpoch) {
+          status.textContent = 'Mock request failed; please retry later.';
+          console.warn('VXSK AI mock request:', error);
+        }
+      } finally {
+        if (requestEpoch === accessEpoch && panel.isConnected) send.disabled = false;
       }
     });
   }
 
   async function init() {
+    const requestEpoch = ++accessEpoch;
     const api = window.VXSKAuth?.client;
-    if (!api) return;
+    if (!api) {
+      unmountUI();
+      activeUserId = null;
+      return;
+    }
 
     try {
       const { data: userData, error: userError } =
         await api.auth.getUser();
-
-      if (userError || !userData?.user) return;
+      if (requestEpoch !== accessEpoch) return;
+      if (userError || !userData?.user) {
+        unmountUI();
+        activeUserId = null;
+        return;
+      }
 
       const { data: roleData, error: roleError } = await api
         .from('staff_roles')
         .select('role')
         .eq('user_id', userData.user.id)
         .maybeSingle();
-
-      if (roleError || roleData?.role !== 'owner') return;
+      if (requestEpoch !== accessEpoch) return;
+      if (roleError || !permittedStaffRole(roleData?.role)) {
+        unmountUI();
+        activeUserId = null;
+        return;
+      }
 
       const { data: assurance, error: mfaError } =
         await api.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (requestEpoch !== accessEpoch) return;
+      if (mfaError || assurance?.currentLevel !== 'aal2') {
+        unmountUI();
+        activeUserId = null;
+        return;
+      }
 
-      if (mfaError || assurance?.currentLevel !== 'aal2') return;
-
+      // Remove old chat content on account switch so users never share chats.
+      if (activeUserId !== userData.user.id) {
+        unmountUI();
+        activeUserId = userData.user.id;
+      }
       mountUI(api);
     } catch (error) {
-      console.warn('VXSK AI pilot unavailable:', error);
+      if (requestEpoch === accessEpoch) {
+        unmountUI();
+        activeUserId = null;
+        console.warn('VXSK AI pilot unavailable:', error);
+      }
     }
   }
 
- 
   const authClient = window.VXSKAuth?.client;
-
   if (authClient) {
-    authClient.auth.onAuthStateChange((event) => {
+    authClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        ++accessEpoch; // invalidate any unfinished requests
+        unmountUI();
+        activeUserId = null;
+        return;
+      }
       if (['INITIAL_SESSION', 'SIGNED_IN', 'TOKEN_REFRESHED'].includes(event)) {
-        setTimeout(() => init(), 0);
+        if (activeUserId && session?.user?.id !== activeUserId) {
+          ++accessEpoch;
+          unmountUI();
+          activeUserId = null;
+        }
+        // Avoid using the auth client synchronously inside the auth callback.
+        setTimeout(init, 0);
       }
     });
   }
 
   init();
 })();
-
