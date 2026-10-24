@@ -557,11 +557,12 @@
     }
     const level = assert(await api.auth.mfa.getAuthenticatorAssuranceLevel());
     mfaRequired = level.currentLevel === 'aal1' && level.nextLevel === 'aal2';
-    if (!mfaRequired && level.currentLevel === 'aal2' && staffLink) {
+    if (staffLink) { // VXSK P0: Role-based staff link; the staff dashboard still requires AAL2.
       // UI convenience only; the database independently enforces RLS and MFA.
       const roleResult = await api.from('staff_roles').select('role').eq('user_id', currentUser.id).maybeSingle();
       const roleAllowed=!roleResult.error && ['owner','reviewer','staff'].includes(roleResult.data?.role);
       staffLink.hidden=!roleAllowed;
+      staffLink.title=roleAllowed && level.currentLevel!=='aal2' ? 'Complete 2FA in My Account to enter Staff Command' : 'Open Staff Command';
       if(ownerRolesLink)ownerRolesLink.hidden=roleResult.data?.role!=='owner';
       if(navStaff)navStaff.hidden=!roleAllowed;
     }

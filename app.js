@@ -70,6 +70,13 @@
     if (!user.email_confirmed_at && !user.confirmed_at) return {error:'Verify your account email before registering.'};
     return {api,user};
   };
+  // VXSK P0: Sync rank immediately when the game selection changes.
+  function syncRegistrationRank() {
+    const select = document.querySelector('#form-rank');
+    if (!select || typeof window.VXSKFillRank !== 'function') return;
+    window.VXSKFillRank(gameSelect.value, select);
+    select.value = 'Unranked';
+  }
   const openRegistration = async (game = 'Rocket League', mode = '1v1', trigger = null) => {
     const access = await requireVXSKAccount();
     if (access.error) {
@@ -85,7 +92,7 @@
     formMessage.className = 'form-message';
     gameSelect.value = ['Rocket League', 'VALORANT', 'League of Legends'].includes(game) ? game : 'Rocket League';
     setFormContext(mode);
-    if(window.VXSKFillRank) { window.VXSKFillRank(gameSelect.value, document.querySelector('#form-rank')); document.querySelector('#form-rank').value='Unranked'; }
+    syncRegistrationRank();
     context.textContent += ' Registered account email: '+(access.user.email||'');
     dialog.showModal();
     $('#form-player').focus();
@@ -95,7 +102,8 @@
   $('#close-modal').addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
   dialog.addEventListener('close', () => lastTrigger?.focus());
-  gameSelect.addEventListener('change', () => {setFormContext(); if(window.VXSKFillRank) { window.VXSKFillRank(gameSelect.value, document.querySelector('#form-rank')); document.querySelector('#form-rank').value='Unranked'; }});
+  gameSelect.addEventListener('change', () => { setFormContext(); syncRegistrationRank(); });
+  gameSelect.addEventListener('input', () => { setFormContext(); syncRegistrationRank(); });
   modeSelect.addEventListener('change', () => setFormContext());
   contactType.addEventListener('change', setContactInput);
   setFormContext();
