@@ -304,8 +304,22 @@ if (mounted) {
       createMessage(messages, question, 'user');
       input.value = '';
 
-      createMessage(messages, mockReply(question), 'bot');
-      status.textContent = 'Mock AI · No real AI usage or billing';
+      
+      const { data, error } = await api.rpc('vxsk_ai_mock_message', {
+        p_message: question
+      });
+
+      if (error) {
+        createMessage(messages, 'AI: ' + error.message, 'bot');
+        status.textContent = 'Request not completed';
+        return;
+      }
+
+      createMessage(messages, data.reply, 'bot');
+      status.textContent =
+        data.messages_remaining + '/' + data.daily_limit +
+        ' messages remaining · ' + data.plan.toUpperCase();
+
     });
 
     api.auth.onAuthStateChange((event) => {
