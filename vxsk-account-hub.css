@@ -27,3 +27,8 @@
 .vxsk-account-hub .vxsk-ah-page .account-settings-grid{margin-bottom:1rem}
 @media(max-width:650px){.vxsk-account-hub .vxsk-ah-shortcuts{grid-template-columns:1fr}.vxsk-account-hub .vxsk-ah-shortcut{min-height:78px}.vxsk-account-hub .vxsk-ah-tab{font-size:.78rem;flex:1 1 105px;padding:.65rem .5rem}}
 @media(prefers-reduced-motion:reduce){.vxsk-account-hub .vxsk-ah-shortcut:hover{transform:none}}
+
+/* Maintain access to the original role-gated links without duplicating auth UI. */
+.vxsk-account-hub .vxsk-ah-staff-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem}
+.vxsk-account-hub .vxsk-ah-staff-actions > [hidden]{display:none!important}
+.vxsk-account-hub .vxsk-ah-staff-actions > a{max-width:100%}

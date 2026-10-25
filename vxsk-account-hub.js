@@ -139,6 +139,19 @@
   const prefsIntro=make('div','vxsk-ah-section-intro');
   prefsIntro.append(make('h4','', 'Account settings & security'),make('p','', 'Update your profile, manage sign-in, or review two-step verification.'));
   prefs.append(prefsIntro,settings,actions);
+  // Keep the ORIGINAL authorization-controlled Staff links discoverable on Overview.
+  // Moving an existing element preserves its ID, hidden flag and Supabase-driven state.
+  const staffLinks = [actions.querySelector('#account-staff-link'), actions.querySelector('#account-owner-roles')].filter(Boolean);
+  if (staffLinks.length) {
+    const staffArea = make('div','vxsk-ah-staff-actions');
+    for (const link of staffLinks) staffArea.append(link);
+    home.append(staffArea);
+  }
+  // Existing avatar buttons open the file picker immediately. Reveal Settings first,
+  // so the upload, crop preview and Save controls are visible when a photo is chosen.
+  doc.querySelectorAll('.vxsk-avatar-edit-button').forEach(button => {
+    button.addEventListener('click', () => navTo('settings',false), true);
+  });
 
   // Preserve original markup, element IDs, and event listeners by moving—not cloning—the nodes.
   // Welcome stays in its original place so auth-client.js can continue updating it.
