@@ -20,3 +20,28 @@
 .vxsk-group-call-alert button:focus-visible,.vxsk-group-call-panel-item button:focus-visible{outline:2px solid #c4a5ff;outline-offset:3px}
 @media(max-width:540px){.vxsk-group-call-alert{left:10px;bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:calc(100vw - 20px);padding:13px}.vxsk-group-call-alert-actions button{flex:1 1 auto}}
 @media(prefers-reduced-motion:reduce){.vxsk-notification-bell.vxsk-has-group-call{animation:none!important}}
+
+/* V12.9.3-P3: header squads shortcut / authenticated live-call green JOIN */
+.vxsk-squad-header-cluster{display:flex;align-items:center;gap:5px;flex-shrink:0;z-index:25}
+.vxsk-squad-header{color:#f3efff;white-space:nowrap;text-decoration:none;background:rgba(61,42,124,.7);border:1px solid #7864bf;border-radius:10px;padding:9px 10px;font:800 11px/1 system-ui,sans-serif}
+.vxsk-squad-header:hover,.vxsk-squad-header:focus-visible{background:#48328d;outline:2px solid #ad91ff;outline-offset:2px}
+.vxsk-squad-header.has-live-call{border-color:#37e59b;box-shadow:0 0 9px rgba(39,223,144,.36)}
+.vxsk-squad-live-join{cursor:pointer;border:1px solid #7dffbf;border-radius:10px;padding:9px 10px;background:linear-gradient(120deg,#077b51,#14955c);color:white;font:900 11px/1 system-ui,sans-serif;white-space:nowrap;box-shadow:0 0 12px rgba(27,240,144,.5);animation:vxsk-live-glow 2s ease-in-out infinite}
+.vxsk-squad-live-join[hidden]{display:none!important}
+.vxsk-squad-ring-toggle{cursor:pointer;white-space:nowrap;background:rgba(52,36,93,.83);border:1px solid #77619b;border-radius:10px;padding:9px 10px;color:#fff;font:800 10px/1 system-ui,sans-serif}
+.vxsk-squad-ring-toggle[aria-pressed=true]{border-color:#4fe6a0;background:rgba(12,87,60,.9)}
+.vxsk-squad-header-cluster button:focus-visible{outline:2px solid #caa7ff;outline-offset:3px}
+@keyframes vxsk-live-glow{50%{box-shadow:0 0 22px rgba(27,240,144,.86)}}
+@media(max-width:1050px){.vxsk-squad-header-cluster{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:12px;z-index:1151;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 20px)}.vxsk-squad-header,.vxsk-squad-live-join,.vxsk-squad-ring-toggle{box-shadow:0 5px 24px rgba(0,0,0,.65)}}
+@media(prefers-reduced-motion:reduce){.vxsk-squad-live-join{animation:none}}
+
+/* Header nickname results: focus and safe small-screen placement */
+.vxsk-header-suggest[hidden]{display:none!important}
+.vxsk-header-suggest{position:fixed;z-index:1800;background:linear-gradient(145deg,#151232,#0b112a);border:1px solid #8c73d3;border-radius:13px;padding:9px;color:#fff;box-shadow:0 17px 40px rgba(0,0,0,.7);max-height:min(400px,65vh);overflow:auto;font-family:system-ui,sans-serif}
+.vxsk-header-search-status{margin:3px 6px 10px;color:#c7bbee;font:600 11px/1.5 system-ui,sans-serif}
+.vxsk-header-search-list{display:flex;flex-direction:column;gap:5px}
+.vxsk-header-search-result{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid rgba(140,111,223,.5);background:#211c49;color:#fff;width:100%;padding:8px;border-radius:10px;cursor:pointer;font-family:system-ui,sans-serif}
+.vxsk-header-search-result:hover,.vxsk-header-search-result:focus-visible{border-color:#ae92ff;background:#342461;outline:2px solid #ae92ff}
+.vxsk-header-search-avatar{display:grid;place-items:center;flex:none;width:29px;height:29px;border-radius:50%;background:#5641a9;font-weight:900}
+.vxsk-header-search-result strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vxsk-header-search-result small{margin-left:auto;font-size:9px;color:#aefed8;white-space:nowrap}
