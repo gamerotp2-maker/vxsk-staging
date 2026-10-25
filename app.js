@@ -76,6 +76,10 @@
     if (!select || typeof window.VXSKFillRank !== 'function') return;
     window.VXSKFillRank(gameSelect.value, select);
     select.value = 'Unranked';
+    // VXSK rank visual: notify badge renderer after native options change.
+    // Native select state and badge grid are separate UI components.
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
   const openRegistration = async (game = 'Rocket League', mode = '1v1', trigger = null) => {
     const access = await requireVXSKAccount();
@@ -95,6 +99,7 @@
     syncRegistrationRank();
     context.textContent += ' Registered account email: '+(access.user.email||'');
     dialog.showModal();
+    requestAnimationFrame(syncRegistrationRank);
     $('#form-player').focus();
   };
   window.VXSKOpenRegistration = openRegistration;

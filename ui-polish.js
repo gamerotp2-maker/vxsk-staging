@@ -51,6 +51,8 @@
     'League of Legends': {prefix:'lol', icon:'assets/lol-logo.webp'}
   };
   const slug = label => label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  // VXSK V12.9.1: Keep the visual badge picker in sync with programmatic game selection.
+  const rankRefreshers = new Map();
   function enhanceRank(formPrefix) {
     const select = document.getElementById(`${formPrefix}-rank`);
     const game = document.getElementById(`${formPrefix}-game`);
@@ -89,14 +91,39 @@
       }
       for (const button of ribbon.children) button.setAttribute('aria-pressed',String(button.dataset.rank===select.value));
     }
-    game.addEventListener('change', () => queueMicrotask(paint));
+    function synchronizeRankUI() {
+      const chosenGame = Object.prototype.hasOwnProperty.call(games, game.value)
+        ? game.value : 'Rocket League';
+      // A registration card sets game.value in JS, without firing a change event.
+      // Refresh the native options AND the independent visual picker together.
+      if (lastGame !== chosenGame && typeof window.VXSKFillRank === 'function') {
+        window.VXSKFillRank(chosenGame, select);
+        select.value = 'Unranked';
+      }
+      paint();
+    }
+    game.addEventListener('input', () => queueMicrotask(synchronizeRankUI));
+    game.addEventListener('change', () => queueMicrotask(synchronizeRankUI));
     select.addEventListener('change',paint);
     const form=select.closest('form');
-    form?.addEventListener('reset',() => {lastGame='';setTimeout(paint,0);});
-    paint();
+    form?.addEventListener('reset',() => {lastGame='';setTimeout(synchronizeRankUI,0);});
+    // HTMLDialogElement.showModal() sets the open attribute. It catches cases
+    // where a game was chosen by a card before the registration form was shown.
+    const dialog = select.closest('dialog');
+    if (dialog && typeof MutationObserver !== 'undefined') {
+      const observer = new MutationObserver(() => {
+        if (dialog.open) queueMicrotask(synchronizeRankUI);
+      });
+      observer.observe(dialog, {attributes:true,attributeFilter:['open']});
+    }
+    rankRefreshers.set(formPrefix, synchronizeRankUI);
+    synchronizeRankUI();
   }
   enhanceRank('form');
   enhanceRank('rival');
+  window.VXSKRefreshRankPicker = (formPrefix = 'form') => {
+    rankRefreshers.get(formPrefix)?.();
+  };
 
   // Inline, accessible partner social icons; actual href targets remain unchanged.
   const brandSvg = {
