@@ -1,0 +1,34 @@
+/* VXSK 12.9.2 Phase 1 — scoped My Account navigation */
+#auth-panel-profile .vxsk-account-hub{margin:1.1rem 0 1.5rem;scroll-margin-top:18px;color:#edf1ff}
+.vxsk-account-hub .vxsk-ah-eyebrow{margin:0 0 .4rem;font-size:.72rem;letter-spacing:.17em;font-weight:800;color:#a6b0ff}
+.vxsk-account-hub .vxsk-ah-heading{display:flex;align-items:baseline;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-bottom:.8rem}
+.vxsk-account-hub .vxsk-ah-heading h3{font-size:clamp(1.3rem,3vw,2.1rem);font-weight:900;line-height:1.05;margin:0;color:#f8f9ff}
+.vxsk-account-hub .vxsk-ah-heading p{margin:0;max-width:35ch;color:#b7bbd1;font-size:.86rem}
+.vxsk-account-hub .vxsk-ah-tabs{position:relative;display:flex;flex-wrap:wrap;gap:.4rem;margin:1rem 0 1.1rem;padding:.45rem;border:1px solid rgba(180,160,255,.24);background:rgba(10,13,32,.8);border-radius:18px}
+.vxsk-account-hub .vxsk-ah-tab{font:inherit;font-size:.88rem;font-weight:800;letter-spacing:.01em;color:#bec5e1;border:1px solid transparent;border-radius:13px;background:transparent;padding:.76rem .95rem;cursor:pointer;flex:1 1 130px;min-height:45px}
+.vxsk-account-hub .vxsk-ah-tab:hover{background:rgba(115,95,230,.22);color:white}
+.vxsk-account-hub .vxsk-ah-tab[aria-selected="true"]{background:linear-gradient(120deg,#6845e6,#965df4 62%,#4556d1);color:white;box-shadow:0 6px 21px rgba(115,77,245,.22)}
+.vxsk-account-hub :is(button,a):focus-visible{outline:3px solid #a0eaf4;outline-offset:3px}
+.vxsk-account-hub .vxsk-ah-page[hidden]{display:none!important}
+.vxsk-account-hub .vxsk-ah-intro{margin:.3rem 0 1.1rem;color:#c9cde1;font-size:.9rem}
+.vxsk-account-hub .vxsk-ah-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.76rem}
+.vxsk-account-hub .vxsk-ah-shortcut{width:100%;min-width:0;min-height:98px;display:flex;align-items:center;text-align:left;gap:.75rem;cursor:pointer;border:1px solid rgba(145,148,241,.29);border-radius:19px;padding:1rem;background:linear-gradient(140deg,rgba(41,39,82,.91),rgba(21,24,51,.93));color:white;box-shadow:0 12px 28px rgba(0,0,0,.12);font:inherit}
+.vxsk-account-hub .vxsk-ah-shortcut:hover{background:linear-gradient(140deg,rgba(81,58,158,.95),rgba(31,34,91,.98));border-color:rgba(178,156,255,.75);transform:translateY(-2px)}
+.vxsk-account-hub .vxsk-ah-shortcut-icon{flex:0 0 40px;width:40px;height:40px;display:grid;place-items:center;font-size:1.28rem;border:1px solid rgba(255,255,255,.17);border-radius:14px;background:rgba(147,117,239,.16)}
+.vxsk-account-hub .vxsk-ah-shortcut-copy{min-width:0;flex:1;display:grid;gap:.24rem}
+.vxsk-account-hub .vxsk-ah-shortcut-copy strong{font-size:.94rem;color:#f7f8ff}
+.vxsk-account-hub .vxsk-ah-shortcut-copy small{color:#c3c5db;line-height:1.33;font-size:.74rem}
+.vxsk-account-hub .vxsk-ah-shortcut-arrow{color:#b9a1ff;font-size:1.1rem}
+.vxsk-account-hub .vxsk-ah-note{font-size:.76rem;color:#aeb5c9;margin:1rem 0 0}
+.vxsk-account-hub .vxsk-ah-section-intro{padding:.4rem 0 1rem}
+.vxsk-account-hub .vxsk-ah-section-intro h4{font-size:1.32rem;font-weight:900;color:white;margin:0 0 .35rem}
+.vxsk-account-hub .vxsk-ah-section-intro p{color:#b6bcd6;margin:0;font-size:.85rem}
+.vxsk-account-hub .vxsk-ah-page .account-dashboard-grid,.vxsk-account-hub .vxsk-ah-page .account-settings-grid{width:100%;min-width:0}
+.vxsk-account-hub .vxsk-ah-page .account-settings-grid{margin-bottom:1rem}
+@media(max-width:650px){.vxsk-account-hub .vxsk-ah-shortcuts{grid-template-columns:1fr}.vxsk-account-hub .vxsk-ah-shortcut{min-height:78px}.vxsk-account-hub .vxsk-ah-tab{font-size:.78rem;flex:1 1 105px;padding:.65rem .5rem}}
+@media(prefers-reduced-motion:reduce){.vxsk-account-hub .vxsk-ah-shortcut:hover{transform:none}}
+
+/* Maintain access to the original role-gated links without duplicating auth UI. */
+.vxsk-account-hub .vxsk-ah-staff-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem}
+.vxsk-account-hub .vxsk-ah-staff-actions > [hidden]{display:none!important}
+.vxsk-account-hub .vxsk-ah-staff-actions > a{max-width:100%}
