@@ -1,5 +1,5 @@
 'use strict';
-/* VXSK V12.9.3-P2: Active squad-call alerts, using existing member-scoped RPCs.
+/* VXSK V12.9.3-P3: Active squad-call alerts, using existing member-scoped RPCs.
    No new database access, no media capture without an explicit Join click.
    This is polling while VXSK is open, NOT server push or an incoming invite. */
 (() => {
@@ -9,7 +9,7 @@
   const notificationPanel = $('vxsk-notification-panel');
   if (!bell || !notificationPanel || $('vxsk-group-call-alert')) return;
 
-  const RING_KEY = 'vxsk-group-ring-v12.9.3-p2';
+  const RING_KEY = 'vxsk-group-ring-v12.9.3-p3';
   const POLL_MS = 20000;
   const MAX_GROUPS = 20;
   const isUuid = value => typeof value === 'string' && /^[a-f0-9-]{36}$/i.test(value);
@@ -67,64 +67,106 @@
   if (panelFooter) panelFooter.before(panelItem);
   else notificationPanel.append(panelItem);
 
+  // Audio can be blocked unless the user explicitly activates it in this tab.
+  // Do not claim RING ON from saved settings if the current page has not unlocked playback.
   let ringEnabled = false;
-  try { ringEnabled = localStorage.getItem(RING_KEY) === 'on'; } catch (_) {}
   const ringtone = new Audio('assets/vxsk-incoming-ring-custom.mp3');
-  ringtone.preload = 'none';
+  ringtone.preload = 'auto';
   ringtone.loop = true;
   ringtone.volume = 0.7;
   let ringTimeout = null;
   let active = [];
   let seen = new Set();
   let ignored = new Set();
-  let baseline = false;
   let uid = null;
   let busy = false;
   let generation = 0;
   let ringingGroup = null;
 
+  const headerNav = doc.querySelector('.nav.shell') || doc.querySelector('.nav');
+  const squadLink = create('a', 'vxsk-squad-header', '💬 SQUADS');
+  squadLink.id = 'vxsk-squad-header';
+  squadLink.href = '#vxsk-groups';
+  squadLink.title = 'Open My Account → Squad Chats';
+  squadLink.setAttribute('aria-label', 'Open private squad chats in My Account');
+  const joinHeader = makeButton('● JOIN', 'vxsk-squad-live-join');
+  joinHeader.id = 'vxsk-squad-live-join';
+  joinHeader.hidden = true;
+  joinHeader.title = 'Join active squad audio call';
+  const ringHeader = makeButton('🔕 RING OFF', 'vxsk-squad-ring-toggle');
+  ringHeader.id = 'vxsk-squad-ring-toggle';
+  ringHeader.setAttribute('aria-label', 'Enable group ringtone and play a test sound');
+  ringHeader.setAttribute('aria-pressed', 'false');
+  const headerCluster = create('div', 'vxsk-squad-header-cluster');
+  headerCluster.append(squadLink, joinHeader, ringHeader);
+  if (headerNav) {
+    const bellParent = bell.closest('.vxsk-community-nav');
+    if (bellParent) bellParent.insertAdjacentElement('afterend', headerCluster);
+    else headerNav.append(headerCluster);
+  }
   function stopRing() {
     if (ringTimeout) { clearTimeout(ringTimeout); ringTimeout = null; }
     ringtone.pause();
-    ringtone.currentTime = 0;
+    try { ringtone.currentTime = 0; } catch (_) {}
     ringingGroup = null;
   }
   function updateRingUi() {
     ring.textContent = ringEnabled ? '🔔 RING ON' : '🔕 ENABLE RING';
     ring.setAttribute('aria-pressed', String(ringEnabled));
     panelMute.textContent = ringEnabled ? 'MUTE GROUP RING' : 'ENABLE GROUP RING';
+    ringHeader.textContent = ringEnabled ? '🔔 RING ON' : '🔕 RING OFF';
+    ringHeader.setAttribute('aria-pressed', String(ringEnabled));
+    ringHeader.setAttribute('aria-label', ringEnabled ? 'Disable group ringtone' : 'Enable group ringtone and play a test sound');
     if (!ringEnabled) stopRing();
   }
   updateRingUi();
   async function setRing() {
-    ringEnabled = !ringEnabled;
-    try { localStorage.setItem(RING_KEY, ringEnabled ? 'on' : 'off'); } catch (_) {}
-    // Only direct user gestures enable the ringtone. Browser policy can still block audio.
     if (ringEnabled) {
-      try {
-        const old = ringtone.volume;
-        ringtone.volume = 0;
-        await ringtone.play();
-        ringtone.pause(); ringtone.currentTime = 0;
-        ringtone.volume = old;
-        info.textContent = 'Ring enabled for active squad calls while VXSK is open.';
-      } catch (_) {
-        ringtone.volume = 0.7;
-        info.textContent = 'Ring enabled, but browser blocked sound. Allow audio for VXSK.';
-      }
+      ringEnabled = false;
+      try { localStorage.setItem(RING_KEY, 'off'); } catch (_) {}
+      updateRingUi();
+      info.textContent = 'Group ringtone muted for this tab.';
+      return;
     }
-    updateRingUi();
+    // The first audible playback happens inside the user click, not from a timer.
+    // If browser autoplay/site sound is blocked, keep the toggle OFF.
+    try {
+      ringtone.volume = 0.7;
+      ringtone.loop = false;
+      ringtone.currentTime = 0;
+      await ringtone.play();
+      ringEnabled = true;
+      try { localStorage.setItem(RING_KEY, 'on'); } catch (_) {}
+      updateRingUi();
+      info.textContent = 'If you heard the test ring, incoming squad calls can ring while this tab is open. Your browser may still restrict background audio.';
+      // Brief audible confirmation; do not leave the test ringing indefinitely.
+      if (ringTimeout) clearTimeout(ringTimeout);
+      ringTimeout = setTimeout(() => {
+        stopRing();
+        ringtone.loop = true;
+      }, 1200);
+    } catch (_) {
+      ringEnabled = false;
+      ringtone.loop = true;
+      updateRingUi();
+      info.textContent = 'Browser blocked the ringtone or the audio asset failed. Allow sound for this site, then tap RING OFF again.';
+    }
   }
   ring.addEventListener('click', () => { void setRing(); });
   panelMute.addEventListener('click', () => { void setRing(); });
+  ringHeader.addEventListener('click', () => { void setRing(); });
 
   async function playRing(groupId) {
     if (!ringEnabled || doc.hidden || ringingGroup === groupId ||
         window.VXSKGroupCalls?.isActive?.() || window.VXSKCalls?.isActive?.()) return;
     stopRing();
     ringingGroup = groupId;
+    ringtone.loop = true;
     try { await ringtone.play(); }
-    catch (_) { info.textContent = 'A squad call is active. Click ENABLE RING or allow site sound.'; stopRing(); return; }
+    catch (_) {
+      info.textContent = 'Squad call detected but audio playback was blocked. Tap RING OFF to test and re-enable sound.';
+      ringEnabled = false; updateRingUi(); stopRing(); return;
+    }
     ringTimeout = setTimeout(stopRing, 16000);
   }
 
@@ -133,6 +175,10 @@
     const visible = currentCalls ? [] : active.filter(x => !ignored.has(x.id));
     const current = visible[0];
     indicator.hidden = active.length === 0;
+    joinHeader.hidden = active.length === 0 || Boolean(currentCalls);
+    joinHeader.classList.toggle('is-live', !joinHeader.hidden);
+    joinHeader.setAttribute('aria-label', active.length ? `Join active squad call in ${active[0].name}` : 'No active squad calls');
+    squadLink.classList.toggle('has-live-call', active.length > 0);
     bell.classList.toggle('vxsk-has-group-call', active.length > 0);
     panelItem.hidden = active.length === 0;
     panelText.textContent = active.length === 1
@@ -156,6 +202,7 @@
   audio.addEventListener('click', () => join(active.find(x => !ignored.has(x.id)), 'audio'));
   video.addEventListener('click', () => join(active.find(x => !ignored.has(x.id)), 'video'));
   panelJoin.addEventListener('click', () => join(active[0], 'audio'));
+  joinHeader.addEventListener('click', () => join(active[0], 'audio'));
   ignore.addEventListener('click', () => {
     const current = active.find(x => !ignored.has(x.id));
     if (current) ignored.add(current.id);
@@ -173,7 +220,7 @@
       if (error) throw error;
       const newUid = data?.user?.id || null;
       if (newUid !== uid) {
-        uid = newUid; baseline = false; seen = new Set(); ignored = new Set();
+        uid = newUid; seen = new Set(); ignored = new Set();
         active = []; stopRing(); display();
       }
       if (!uid) return;
@@ -195,11 +242,10 @@
       }
       if (token !== generation || newUid !== uid) return;
       const nowActive = new Set(found.map(x => x.id));
-      const newCalls = baseline ? found.filter(x => !seen.has(x.id)) : [];
+      const newCalls = found.filter(x => !seen.has(x.id));
       for (const id of [...ignored]) if (!nowActive.has(id)) ignored.delete(id);
       active = found;
       seen = nowActive;
-      baseline = true;
       display();
       const fresh = newCalls.find(x => !ignored.has(x.id));
       if (fresh) { void playRing(fresh.id); }
@@ -209,7 +255,7 @@
   }
   function clearForAuth() {
     generation++;
-    uid = null; baseline = false; seen = new Set(); ignored = new Set();
+    uid = null; seen = new Set(); ignored = new Set();
     active = []; stopRing(); display();
     setTimeout(() => { void runPoll(); }, 250);
   }
