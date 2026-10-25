@@ -1,0 +1,51 @@
+/* VXSK V12.9.3 P1 — social alerts UI; no changes to existing call/rank/account styles */
+.vxsk-notification-bell {
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:42px;min-width:42px;height:42px;border:1px solid rgba(173,137,255,.52);
+  border-radius:14px;color:#f6efff;background:linear-gradient(150deg,#29204d,#171b40);
+  cursor:pointer;isolation:isolate;transition:border-color .2s,box-shadow .2s,transform .2s;
+}
+.vxsk-notification-bell:hover,.vxsk-notification-bell:focus-visible {
+  border-color:#eb83ff;box-shadow:0 0 0 2px rgba(174,94,255,.22);transform:translateY(-1px)
+}
+.vxsk-notification-bell .vxsk-notification-symbol{font-size:19px;line-height:1}
+.vxsk-notification-count{position:absolute;top:-8px;right:-7px;min-width:20px;min-height:20px;
+  display:grid;place-items:center;padding:2px 4px;border-radius:999px;background:#fc315f;color:white;
+  font:800 11px/1 system-ui,sans-serif;border:2px solid #120d2f;box-shadow:0 0 12px rgba(255,42,91,.63)}
+.vxsk-notification-count[hidden],.vxsk-notification-panel[hidden]{display:none!important}
+.vxsk-notification-bell.has-alert{border-color:#fb527b;box-shadow:0 0 16px rgba(255,39,95,.4)}
+.vxsk-notification-pulse{animation:vxsk-notif-pulse .8s ease-out 1}
+@keyframes vxsk-notif-pulse{40%{box-shadow:0 0 0 8px rgba(255,49,95,.18),0 0 24px rgba(255,49,95,.68)}}
+.vxsk-notification-panel{box-sizing:border-box;position:fixed;right:clamp(10px,3vw,32px);top:86px;
+  z-index:400;width:min(405px,calc(100vw - 20px));max-height:min(700px,calc(100dvh - 106px));
+  overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px;border:1px solid rgba(179,144,255,.5);
+  border-radius:22px;background:linear-gradient(155deg,#191536 0%,#0b1027 100%);color:#f6f4ff;
+  box-shadow:0 26px 80px rgba(0,0,0,.62),0 0 34px rgba(106,53,218,.22);
+}
+.vxsk-notification-heading{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.vxsk-notification-heading-copy{display:flex;flex-direction:column;gap:3px}
+.vxsk-notification-heading strong{font-size:20px;letter-spacing:.035em;color:#fff}
+.vxsk-notification-heading small,.vxsk-notification-intro,.vxsk-notification-note{color:#c6bcdf}
+.vxsk-notification-heading small{font-size:12px}
+.vxsk-notification-close{font:28px/1 sans-serif;cursor:pointer;border:1px solid #7d64a5;
+  border-radius:11px;background:#2a204c;color:#fff;width:34px;height:34px}
+.vxsk-notification-intro,.vxsk-notification-note{font-size:13px;line-height:1.5;margin:0}
+.vxsk-notification-summary{font-size:13px;color:#f8e8f3;font-weight:700;margin:2px 0}
+.vxsk-notification-item{display:flex;align-items:center;gap:12px;padding:13px;border-radius:14px;
+  border:1px solid rgba(177,143,255,.34);background:rgba(112,78,201,.13);color:#fff;text-decoration:none}
+.vxsk-notification-item:hover,.vxsk-notification-item:focus-visible{outline:2px solid #b67cfb;outline-offset:2px;background:rgba(112,78,201,.23)}
+.vxsk-notification-item-icon{font-size:21px}
+.vxsk-notification-item-copy{display:flex;flex:1;flex-direction:column;gap:5px}
+.vxsk-notification-item-copy strong{font-size:12px;letter-spacing:.05em}
+.vxsk-notification-item-copy small{font-size:12px;color:#d2c8ea}
+.vxsk-notification-item-arrow{color:#c89dff}
+.vxsk-notification-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vxsk-notification-refresh,.vxsk-notification-manage{font:700 12px/1.4 system-ui,sans-serif;
+  border-radius:12px;padding:10px 12px;cursor:pointer}
+.vxsk-notification-refresh{border:1px solid #a177e1;background:#33235a;color:#fff}
+.vxsk-notification-manage{border:1px solid #7259d7;background:#5933c0;color:white;text-decoration:none}
+.vxsk-notification-refresh:focus-visible,.vxsk-notification-manage:focus-visible,.vxsk-notification-close:focus-visible{outline:2px solid #d7acff;outline-offset:2px}
+@media(max-width:600px){.vxsk-notification-panel{top:66px;right:10px;padding:14px;max-height:calc(100dvh - 80px)}.vxsk-notification-bell{width:37px;min-width:37px;height:37px;border-radius:12px}}
+@media(prefers-reduced-motion:reduce){.vxsk-notification-bell{transition:none}.vxsk-notification-pulse{animation:none}}
+
+.vxsk-notification-bell.is-floating{position:fixed;right:12px;top:72px;z-index:390}
