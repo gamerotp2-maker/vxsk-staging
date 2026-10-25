@@ -1,0 +1,24 @@
+/* VXSK V12.9.4 safe UI preview; no form/auth/call changes. */
+[hidden] { display:none!important; }
+#find-rival, a[href="#find-rival"], #my-opponents-title { display:none!important; }
+.vxsk-master-dms{border:1px solid #836aca;border-radius:13px;color:#f7efff;background:#28204a;padding:9px 12px;cursor:pointer;font:700 12px/1.2 system-ui,sans-serif;white-space:nowrap}
+.vxsk-master-dms:hover,.vxsk-master-dms:focus-visible{background:#4a317e;outline:2px solid #9d7bff;outline-offset:2px}
+.vxsk-master-shop{position:relative;isolation:isolate;padding:70px max(16px,calc((100vw - 1250px)/2));color:#f3efff;background:linear-gradient(145deg,#090d26,#1a1039 65%,#090d26)}
+.vxsk-master-shop-inner{max-width:1240px;margin:auto}.vxsk-master-shop-lead h2{font-size:clamp(29px,5vw,54px);margin:10px 0;line-height:1.1}.vxsk-master-shop-lead p{max-width:720px;color:#cbc5ed}.vxsk-master-kicker{letter-spacing:.16em;font-size:12px;color:#bba2fa;font-weight:800}
+.vxsk-master-shop-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}
+.vxsk-master-shop-card{border:1px solid #4e467a;border-radius:18px;background:rgba(19,20,55,.88);padding:23px;min-width:0}
+.vxsk-master-shop-icon{font-size:28px}.vxsk-master-shop-card h3{font-size:20px;margin:16px 0 7px}.vxsk-master-shop-card p{color:#cfcae9;line-height:1.6;min-height:76px}.vxsk-master-shop-card strong{font-size:12px;color:#b99aff;letter-spacing:.06em}
+.vxsk-master-shop-note{font-size:12px;line-height:1.55;color:#afa8cb;margin:24px 0 0}
+/* Actual avatar URLs are loaded by the existing secured community client. Only fix clipping when present. */
+.vxsk-group-member-avatar,.vxsk-group-choice-avatar,.vxsk-group-post-avatar{display:inline-grid;place-items:center;flex-shrink:0;position:relative;overflow:hidden;border-radius:50%;width:32px;height:32px;min-width:32px;vertical-align:middle}
+.vxsk-group-member-avatar img,.vxsk-group-choice-avatar img,.vxsk-group-post-avatar img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;border-radius:50%!important;max-width:none!important}
+@media(max-width:800px){.vxsk-master-shop{padding:42px 18px}.vxsk-master-shop-cards{grid-template-columns:1fr}.vxsk-master-shop-card p{min-height:0}}
+@media(max-width:650px){
+  .bulletin-columns{grid-template-columns:minmax(0,1fr)!important;gap:22px!important}
+  .bulletin-column,.bulletin-column-head,#bulletin-announcements,#match-list{min-width:0!important;max-width:100%!important}
+  .bulletin-column-head{width:100%!important;overflow:visible!important;margin-inline:0!important;padding-inline:0!important}
+  .bulletin-column-head h3{font-size:clamp(1.35rem,8vw,2.15rem)!important;line-height:1.1!important;white-space:normal!important;overflow-wrap:break-word!important}
+  .match-hub,.match-center{overflow-x:clip!important}
+  .header .vxsk-community-nav .vxsk-master-dms{padding:7px;width:35px;min-width:35px;min-height:34px;font-size:0;flex:0 0 auto;overflow:hidden}
+  .header .vxsk-community-nav .vxsk-master-dms::before{content:"✉";font-size:17px}
+}
