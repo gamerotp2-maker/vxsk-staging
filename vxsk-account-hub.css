@@ -32,3 +32,36 @@
 .vxsk-account-hub .vxsk-ah-staff-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem}
 .vxsk-account-hub .vxsk-ah-staff-actions > [hidden]{display:none!important}
 .vxsk-account-hub .vxsk-ah-staff-actions > a{max-width:100%}
+
+/* VXSK V12.9.2 P2: Community is part of My Account, not a duplicate homepage section. */
+.vxsk-account-hub .vxsk-ah-page #community{margin:0;padding:0;max-width:100%;min-width:0;width:100%;color:#f1f2ff;scroll-margin-top:1rem}
+.vxsk-account-hub .vxsk-ah-page #community .section-head{margin:0 0 .8rem;gap:1rem;align-items:start}
+.vxsk-account-hub .vxsk-ah-page #community .section-head h2{font-size:clamp(1.5rem,4vw,2.7rem);margin:0}
+.vxsk-account-hub .vxsk-ah-page #community .section-head p{font-size:.9rem;line-height:1.55}
+.vxsk-account-hub .vxsk-ah-page #community .community-shell{width:100%;max-width:100%;min-width:0;margin:0;padding:1rem;border-radius:20px}
+.vxsk-account-hub .vxsk-ah-page #community .community-panel,
+.vxsk-account-hub .vxsk-ah-page #community .vxsk-group-section{width:100%;min-width:0;margin:.5rem 0 0}
+.vxsk-account-hub .vxsk-ah-community-nav{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.25rem}
+.vxsk-account-hub .vxsk-ah-community-tab{flex:1 1 145px;min-height:44px;font:inherit;font-size:.83rem;font-weight:800;line-height:1.25;border:1px solid rgba(164,149,237,.38);color:#d9d9f7;background:rgba(24,24,60,.94);border-radius:12px;padding:.7rem .8rem;cursor:pointer}
+.vxsk-account-hub .vxsk-ah-community-tab[aria-selected="true"]{background:linear-gradient(110deg,#7445e3,#355ce1);border-color:#967dff;color:#fff}
+.vxsk-account-hub .vxsk-ah-community-pane[hidden]{display:none!important}
+.vxsk-account-hub .vxsk-ah-community-pane{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.vxsk-account-hub .vxsk-ah-community-pane .community-panel{max-width:100%}
+.vxsk-account-hub .vxsk-ah-community-pane #community-results{max-height:min(42vh,460px);overflow:auto}
+.vxsk-account-hub .vxsk-ah-community-pane .community-search-row{display:flex;min-width:0}
+.vxsk-account-hub .vxsk-ah-community-pane .community-search-row input{min-width:0;flex:1}
+.vxsk-account-hub .vxsk-ah-community-pane .vxsk-group-layout{min-width:0}
+/* Make the hub large enough for existing group chat, directory and friends cards. */
+.account-dialog:has(.vxsk-ah-community-mounted) .account-shell{width:min(1050px,94vw);max-width:100%}
+.account-dialog:has(#auth-panel-profile:not([hidden])){width:min(1080px,calc(100vw - 24px));max-width:98vw}
+@media(max-width:680px){
+ .vxsk-account-hub .vxsk-ah-community-tab{flex:1 1 128px;font-size:.74rem;padding:.55rem .42rem}
+ .vxsk-account-hub .vxsk-ah-page #community .community-shell{padding:.7rem}
+ .vxsk-account-hub .vxsk-ah-page #community .section-head{display:block}
+ .vxsk-account-hub .vxsk-ah-page #community .community-search-row{flex-wrap:wrap}
+ .account-dialog:has(#auth-panel-profile:not([hidden])){width:calc(100vw - 12px);max-width:100vw}
+}
+
+/* Reveal classes were originally observed on the homepage; inside an opened account
+   dialog their layout should never wait for a homepage scroll intersection. */
+.vxsk-account-hub #community .reveal{opacity:1!important;visibility:visible!important;transform:none!important}

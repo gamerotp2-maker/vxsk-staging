@@ -1,5 +1,5 @@
 'use strict';
-/* VXSK V12.9.2 P1 — Account navigation only. Existing authentication and RPCs remain untouched. */
+/* VXSK V12.9.2 P2 — Move original community UI into account tabs; no data/auth/RPC edits. */
 (() => {
   const doc = document;
   const $ = id => doc.getElementById(id);
@@ -35,6 +35,7 @@
   const menu = [
     {id:'overview',label:'Overview',icon:'⌂'},
     {id:'activity',label:'My Arena',icon:'⚔'},
+    {id:'community',label:'Community & Friends',icon:'👥'},
     {id:'settings',label:'Settings & Security',icon:'⚙'}
   ];
   for (const item of menu) {
@@ -76,28 +77,23 @@
     });
   }
 
+  let openCommunityPane = null;
   const destination = {
     applications: {tab:'activity', target:'my-applications-title'},
     opponents: {tab:'activity', target:'my-opponents-title'},
     settings: {tab:'settings', target:'account-nickname'},
     security: {tab:'settings', target:'mfa-badge'},
-    friends: {external:'community', target:'community-friends'},
-    challenges: {external:'community', target:'vxsk-challenges'},
-    squads: {external:'community', target:'vxsk-groups'},
-    blocklist: {external:'community', target:'community-blocklist'}
+    friends: {tab:'community', pane:'friends', target:'community-friends'},
+    challenges: {tab:'community', pane:'challenges', target:'vxsk-challenges'},
+    squads: {tab:'community', pane:'squads', target:'vxsk-groups'},
+    blocklist: {tab:'community', pane:'blocklist', target:'community-blocklist'}
   };
   function navigate(where){
     const to=destination[where];
     if(!to)return;
-    if(to.external){
-      // Native dialog must be closed before scrolling to the page beneath it.
-      if(dialog.open)dialog.close();
-    }else{navTo(to.tab);}
-    // Render the selected account panel before scrolling (and allow the modal to close).
-    requestAnimationFrame(()=>{
-      const target=$(to.target)||$(to.external);
-      target?.scrollIntoView({behavior:'smooth',block:'center'});
-    });
+    navTo(to.tab,false);
+    if(to.pane) openCommunityPane?.(to.pane);
+    requestAnimationFrame(()=>$(to.target)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
   }
 
   const home = sections.get('overview');
@@ -158,6 +154,117 @@
   welcome.insertAdjacentElement('afterend',hub);
   hub.append(eyebrow,heading,nav,pages);
   navTo('overview',false);
+  // The original homepage Community UI now belongs to My Account.
+  // MOVE nodes, never clone: maintain the existing IDs, private data, listeners and RPC clients.
+  const community = $('community');
+  const shell = community?.querySelector('.community-shell');
+  const columns = shell?.querySelector('.community-columns');
+  const originalPanels = columns && [...columns.children];
+  const expected = ['community-search','community-go','community-results','community-friends',
+    'community-blocklist','vxsk-challenges','vxsk-groups','community-chat'];
+  if (community && shell && originalPanels?.length === 2 && expected.every(key=>$(key))) {
+    const parent = sections.get('community');
+    parent.append(community);
+    community.classList.add('vxsk-ah-community-mounted');
+    const subnav = make('div','vxsk-ah-community-nav');
+    subnav.setAttribute('role','tablist');
+    subnav.setAttribute('aria-label','Community sections');
+    const choices = [
+      ['discover','Find Players'],['friends','Friends & Requests'],
+      ['blocklist','Blocklist'],['challenges','Challenges'],['squads','Squad Chats']
+    ];
+    const panes = new Map();
+    const buttons = new Map();
+    for (const [key,label] of choices) {
+      const button=make('button','vxsk-ah-community-tab',label);
+      button.type='button';button.id='vxsk-ah-community-tab-'+key;
+      button.setAttribute('role','tab');button.setAttribute('aria-controls','vxsk-ah-community-pane-'+key);
+      button.setAttribute('aria-selected','false');button.tabIndex=-1;
+      const pane=make('section','vxsk-ah-community-pane');
+      pane.id='vxsk-ah-community-pane-'+key;
+      pane.setAttribute('role','tabpanel');pane.setAttribute('aria-labelledby',button.id);
+      pane.hidden=true;
+      subnav.append(button);panes.set(key,pane);buttons.set(key,button);
+    }
+    openCommunityPane=(key,scroll=false)=>{
+      if(!panes.has(key))return;
+      for (const [name,pane] of panes) {
+        const active=name===key;
+        pane.hidden=!active;
+        const tab=buttons.get(name);
+        tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;
+      }
+      if(scroll) shell.scrollIntoView({block:'start',behavior:'smooth'});
+    };
+    for (const [name,button] of buttons) {
+      button.addEventListener('click',()=>openCommunityPane(name,true));
+      button.addEventListener('keydown',event=>{
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+        event.preventDefault();
+        const ids=[...buttons.keys()];const at=ids.indexOf(name);
+        const next=event.key==='Home'?0:event.key==='End'?ids.length-1:
+          (at+(event.key==='ArrowRight'?1:-1)+ids.length)%ids.length;
+        buttons.get(ids[next]).focus();openCommunityPane(ids[next]);
+      });
+    }
+    const take = (target,...nodes) => nodes.forEach(node=>{if(node) target.append(node);});
+    const find = panes.get('discover');
+    take(find,shell.querySelector('.community-intro'),shell.querySelector('.community-search-row'),
+      $('community-feedback'),$('community-results'),originalPanels[0]);
+    take(panes.get('friends'),originalPanels[1],$('community-chat'));
+    take(panes.get('blocklist'),$('community-blocklist'));
+    take(panes.get('challenges'),$('vxsk-challenges'));
+    take(panes.get('squads'),$('vxsk-groups'));
+    // Keep the original #community ancestor for existing community script selectors.
+    shell.replaceChildren(subnav,...panes.values());
+    // Original empty column container can be discarded; its children were MOVED above.
+    columns.remove();
+    openCommunityPane('discover');
+
+    function openCommunity(key,focusSearch=false) {
+      // Reuse the existing auth-controlled My Account opener; never bypass sign-in.
+      if (!dialog.open || profile.hidden) {
+        doc.querySelector('.account-nav.open-account')?.click();
+      }
+      if (dialog.open && !profile.hidden) {
+        navTo('community',false);
+        openCommunityPane(key);
+        if (focusSearch) requestAnimationFrame(()=> $('community-search')?.focus());
+      }
+    }
+    // Previous bookmarks, footer links, navbar shortcuts must still work.
+    const hashToPane = {
+      '#community':'discover','#community-search':'discover',
+      '#community-friends':'friends','#community-chat':'friends',
+      '#community-blocklist':'blocklist','#vxsk-challenges':'challenges',
+      '#vxsk-groups':'squads'
+    };
+    doc.addEventListener('click',event=>{
+      const anchor=event.target.closest?.('a[href^="#"]');
+      if (!anchor) return;
+      const href=anchor.getAttribute('href');
+      if (!Object.prototype.hasOwnProperty.call(hashToPane,href)) return;
+      event.preventDefault();
+      openCommunity(hashToPane[href],href==='#community-search');
+    },true);
+    for (const id of ['nav-add-friend','nav-friends-add']) {
+      $(id)?.addEventListener('click',()=>openCommunity('discover',true),true);
+    }
+    // Once an existing friends action reveals the chat, switch to the correct tab.
+    const chat=$('community-chat');
+    if(chat && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(()=>{
+        if(!chat.hidden && dialog.open && !profile.hidden){
+          navTo('community',false);openCommunityPane('friends');
+        }
+      }).observe(chat,{attributes:true,attributeFilter:['hidden']});
+    }
+    // Preserve open account on community tab when user hits a navigation shortcut.
+    // Sign-out still resets the original My Account interface.
+    dialog.addEventListener('close',()=>openCommunityPane('discover'));
+  } else {
+    console.warn('[VXSK My Account] Community migration skipped: original markup missing.');
+  }
   // Reset tab after signing out or closing, but do not block the existing account lifecycle.
   dialog.addEventListener('close',()=>navTo('overview',false));
   // Tab nav never changes Supabase privileges, application submission or permissions.
