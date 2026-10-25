@@ -1,0 +1,22 @@
+/* VXSK V12.9.3 P2 — adds group-call alerts without changing existing call UI. */
+.vxsk-notification-bell .vxsk-group-call-dot[hidden],
+.vxsk-group-call-alert[hidden],.vxsk-group-call-panel-item[hidden]{display:none!important}
+.vxsk-notification-bell .vxsk-group-call-dot{position:absolute;bottom:-7px;left:-8px;display:grid;place-items:center;border:1px solid #9a8bff;background:#151238;border-radius:999px;font-size:12px;width:23px;height:23px;box-shadow:0 0 12px rgba(134,98,255,.5)}
+.vxsk-notification-bell.vxsk-has-group-call{box-shadow:0 0 0 2px rgba(135,93,255,.45),0 0 17px rgba(135,93,255,.55)}
+.vxsk-group-call-alert{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom, 0px));left:18px;width:min(385px,calc(100vw - 36px));z-index:1100;padding:18px;border:1px solid rgba(166,137,255,.72);border-radius:17px;background:linear-gradient(145deg,#17113e,#0c112e);box-shadow:0 18px 60px rgba(0,0,0,.7),0 0 26px rgba(116,72,246,.3);color:#f7f5ff;font:500 14px/1.45 system-ui,sans-serif}
+.vxsk-group-call-alert-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.vxsk-group-call-alert-copy{display:flex;flex-direction:column;gap:6px;min-width:0}
+.vxsk-group-call-alert-copy strong{font-weight:850;letter-spacing:.04em;overflow-wrap:anywhere}
+.vxsk-group-call-alert-copy small{color:#c7c1f2}
+.vxsk-group-call-alert-dismiss{width:32px;height:32px;flex:none;background:#2c2251;color:#fff;border:1px solid #9c81d8;border-radius:10px;font-size:20px;cursor:pointer}
+.vxsk-group-call-alert-actions,.vxsk-group-call-panel-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.vxsk-group-call-alert-join,.vxsk-group-call-panel-join{background:linear-gradient(110deg,#7237df,#3365ed);color:#fff;border:1px solid #9c86ff;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer}
+.vxsk-group-call-alert-ring,.vxsk-group-call-panel-ring{background:#2c2251;color:#f3eefe;border:1px solid #7c69a3;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer}
+.vxsk-group-call-alert-info{font-size:11px;color:#c5bfe4;margin:12px 0 0}
+.vxsk-group-call-panel-item{border:1px solid rgba(151,124,239,.5);border-radius:13px;background:rgba(70,50,130,.25);padding:12px;color:#f8f6ff}
+.vxsk-group-call-panel-item strong{font-size:12px}
+.vxsk-group-call-panel-item p{font-size:12px;color:#cbc4ed;margin:8px 0 0}
+.vxsk-group-call-panel-actions{margin-top:10px}
+.vxsk-group-call-alert button:focus-visible,.vxsk-group-call-panel-item button:focus-visible{outline:2px solid #c4a5ff;outline-offset:3px}
+@media(max-width:540px){.vxsk-group-call-alert{left:10px;bottom:calc(10px + env(safe-area-inset-bottom, 0px));width:calc(100vw - 20px);padding:13px}.vxsk-group-call-alert-actions button{flex:1 1 auto}}
+@media(prefers-reduced-motion:reduce){.vxsk-notification-bell.vxsk-has-group-call{animation:none!important}}
